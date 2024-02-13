@@ -12,8 +12,6 @@ Seminar papers to read:
 
 [Unsupervised Domain Adaptation by Backpropagation](https://proceedings.mlr.press/v37/ganin15.pdf)
 
-[DRANet: Disentangling Representation and Adaptation Networks for Unsupervised Cross-Domain Adaptation](https://openaccess.thecvf.com/content/CVPR2021/papers/Lee_DRANet_Disentangling_Representation_and_Adaptation_Networks_for_Unsupervised_Cross-Domain_Adaptation_CVPR_2021_paper.pdf)
-
 [Contrastive Domain Adaptation](https://arxiv.org/pdf/2103.15566.pdf)
 
 [Self-Supervised Learning of Domain Invariant Features for Depth Estimation](https://openaccess.thecvf.com/content/WACV2022/papers/Akada_Self-Supervised_Learning_of_Domain_Invariant_Features_for_Depth_Estimation_WACV_2022_paper.pdf)
