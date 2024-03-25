@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Sequence
 import torch
 from torch.utils.data import Dataset
+from torch.utils.data.dataset import random_split
 
 np.random.seed(99)
 torch.manual_seed(99)
@@ -16,45 +17,30 @@ DOMAINS = ['Spectralis', 'Topcon', 'Cirrus']
 
 class OCTDatasetPrep(Dataset):
     '''
-    Custom dataset object accomplishes the task of bringing the training data into the right format for further processing.
+    This class prepares the dataset for the SVDNA process. It filters the source domain and splits the dataset into training, validation and test sets.
     '''
     
-    def __init__(self, data_path: str, transform: Sequence = None, generate_empty_labels=False, source_domain: str = 'Spectralis'):
+    def __init__(self, data_path: str, generate_empty_labels=False, source_domain: str = 'Spectralis'):
 
         self.data_path = Path(data_path)
+
         self.named_domain_folder = Path.cwd() / 'data/RETOUCH/TrainingSet-Release' # path holding the img folders sorted by domain
+
         self.domains = os.listdir(self.named_domain_folder) # gets only the names of domains
         self.source_domain = source_domain
 
-        self.transform = transform
-
         if generate_empty_labels:
-            self.generate_black_images() # check if this misses arguments
-                                         # change method so it only creates black images for source domain
+            self.generate_black_images() 
 
         try:
-            self.dict_domain_images_sorted, self.num_domains = self.filter_source_domain(self.data_path, self.source_domain, self.domains)
+            self.source_domain_dict, self.num_domains = self.filter_source_domain(self.data_path, self.source_domain, self.domains)
         except IndexError:
             raise Exception("LABEL IMAGES MISSING! Have you tried generating all missing label images?")
-
-        self.source_domain_dict = self.dict_domain_images_sorted.pop(self.source_domain)
-        self.target_domain_dict = self.dict_domain_images_sorted
         
+        self.source_domain_list = self.source_domain_dict[self.source_domain] # make this smoother
 
     def __len__(self):
         return len(self.source_domain_dict)
-    
-    
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-
-        sample = self.source_domain_dict[idx]
-
-        if self.transform:
-            sample = self.transform(sample)
-
-        return sample
 
 
     def filter_source_domain(self, data_path, source_domain, domains):
@@ -102,15 +88,7 @@ class OCTDatasetPrep(Dataset):
                                         )
 
                                 else:
-                                    #print(f"Image {img_folder}/image/{sliced_images[i]} has no corresponding label image. Skipping image. \nTake a look at 'generate_black_images' method.") 
                                     continue
-                        
-                        else:
-
-                            sliced_images = sorted(os.listdir(data_path / img_folder / 'image'))
-
-                            for i in range(len(sliced_images)):
-                                    list_of_dicts_images.append({'img': str(data_path / img_folder / 'image' / sliced_images[i])})
                         
             domains_dict[domain] = list_of_dicts_images
                                         
@@ -171,3 +149,39 @@ class OCTDatasetPrep(Dataset):
     def delete_generated_labels(self):
         # Delete the generated black images
         self.generate_black_images(delete_images=True)
+
+    def get_datasets(self, dataset_split: Sequence[float] = [0.7, 0.2, 0.1]):
+        '''
+        Returns the datasets in the order:
+        training_set, validation_set, test_set
+        '''
+
+        dataset_len = len(self.source_domain_list)
+        test_len = int(dataset_len * dataset_split[2])
+        val_len = int(dataset_len * dataset_split[1])
+        train_len = dataset_len - test_len - val_len
+
+        self.training_set, self.validation_set, self.test_set = random_split(self.source_domain_list, [train_len, val_len, test_len])
+        print(f"Training set: {len(self.training_set)}")
+        print(f"Validation set: {len(self.validation_set)}")
+        print(f"Test set: {len(self.test_set)}")
+        return self.training_set, self.validation_set, self.test_set
+
+
+class MakeDataset(Dataset):
+
+    def __init__(self, dataset_untransformed, transform=None):
+
+        self.dataset_untransformed = dataset_untransformed
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.dataset_untransformed)
+    
+    def __getitem__(self, idx):
+        sample = self.dataset_untransformed[idx]
+
+        if self.transform:
+            sample = self.transform(sample)
+
+        return sample
