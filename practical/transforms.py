@@ -245,17 +245,19 @@ class TransposeImage(MapTransform):
                 d[key] = img
             return d
         
-               
-class SVDNA(MapTransform):
+
+class SVDNA(MapTransform, Randomizable):
 
     def __init__(self, 
                  keys: KeysCollection, 
                  histogram_matching_degree: float = 0.5,
                  allow_missing_keys: bool = False, 
+                 prob: float = 1.0,
                  source_domain: str = "Spectralis", 
                  data_path: Path = Path(Path.cwd() / 'data/Retouch-Preprocessed/train')) -> None:
         super().__init__(keys, allow_missing_keys)
 
+        self.prob = np.clip(prob, 0.0, 1.0)
         self.source_domain = source_domain
         self.named_domain_folder = Path.cwd() / 'data/RETOUCH/TrainingSet-Release' # path holding the img folders sorted by domain
         self.target_dataset = self.filter_target_domain(data_path, source_domain)
@@ -334,22 +336,22 @@ class SVDNA(MapTransform):
 
         if domain != source_domain:
             # randomly sample k and target image to get style from
-            k = np.random.randint(20, 50)
+            k = self.R.randint(20,50)
             
-            target = target_dataset[domain][np.random.randint(0, len(target_dataset[domain]))]['img']
+            target = target_dataset[domain][self.R.randint(0, len(target_dataset[domain]))]['img']
 
             source_img_raw, target_img_raw, _, _, img_svdna, source_noise_adapt_no_histogram = self.svdna(k, target, source, histogram_matching_degree)
             #print("SVDNA performed.", img_svdna.shape, type(img_svdna))
 
         else:
             img_svdna = cv2.imread(source, 0)
-            #print("Source domain chosen. No SVDNA performed.", img_svdna.shape)
+            #print("Source domain chosen. No SVDNA performed.")
 
         return img_svdna
     
 
     def readIm(self, imagepath):
-        image = cv2.imread(str(imagepath), 0)
+        image = imagepath#cv2.imread(str(imagepath), 0)
         return image
 
 
@@ -386,7 +388,7 @@ class SVDNA(MapTransform):
         noise_adapted_im_clipped = noise_adapted_im.clip(0, 255).astype(np.uint8)
 
         transformHist = A.Compose([
-        A.HistogramMatching([target_img_path], blend_ratio=(histo_matching_degree, histo_matching_degree), read_fn=self.readIm, p=1)
+        A.HistogramMatching([resized_target], blend_ratio=(histo_matching_degree, histo_matching_degree), read_fn=self.readIm, p=1)
         ])
 
         transformed = transformHist(image=noise_adapted_im_clipped)
@@ -401,8 +403,15 @@ class Debugging(MapTransform):
         
         def __call__(self, data):
             for key in self.keys:
-                print(key, data[key].shape)
-                #print(type(data[key]))
+                if key == "masks":
+                    print(
+                          key, ":", 
+                          "\nshape: ", data[key].shape, 
+                          "\nmax: ", data[key][0].max(), 
+                          "\nmin: ", data[key][0].min(), 
+                          "\nmean: ", data[key][0].mean(), 
+                          "\ndtype: ", data[key].dtype
+                          )
             
             return data
 
@@ -424,29 +433,13 @@ class CustomImageLoader(MapTransform):
     
     def __call__(self, data):
         d = dict(data)
+        #empty = False
         for ki, key in enumerate(self.keys):
+            #if "empty" in data[key]:
+            #    empty = True
             d[key] = cv2.imread(data[key], cv2.IMREAD_GRAYSCALE)
+            #print(d[key].shape, d[key].max(), d[key].min(), d[key].dtype) if empty else None
         return d
-    
-
-class ImageVisualizer(MapTransform):
-
-
-    
-    def __init__(self, keys: KeysCollection, allow_missing_keys: bool = False) -> None:
-        super().__init__(keys, allow_missing_keys)
-    
-    def __call__(self, data):
-        for key in self.keys:
-            if len(data[key].shape) == 3:
-                plt.imshow(data[key])
-                plt.title(key)
-                plt.show()
-            else:
-                plt.imshow(data[key], cmap='gray')
-                plt.title(key)
-                plt.show()
-        return data
     
 
 class ConvertLabelMaskToChannel(MapTransform):
@@ -458,9 +451,10 @@ class ConvertLabelMaskToChannel(MapTransform):
         super().__init__(keys, allow_missing_keys)
 
         self.target_keys = target_keys
-        self.pixel_class_map = {50: 0, 
-                                100: 1, 
-                                150: 2}
+        self.pixel_class_map = {0: 0,
+                                50: 1, 
+                                100: 2, 
+                                150: 3}
         
 
     def __call__(self, data):
@@ -499,8 +493,9 @@ class ImageVisualizer(MapTransform):
                 image = np.squeeze(image, 0)
                 ax[i].imshow(image, cmap='gray')
                 ax[i].set_title(key)
-            else:
-                image = np.transpose(image, (1, 2, 0))
+            elif image.shape[0] == 4:
+                #print("only showing segmentation maps")
+                image = np.transpose(image[1:, :, :], (1, 2, 0))
                 ax[i].imshow(image)
                 ax[i].set_title(key)
         
