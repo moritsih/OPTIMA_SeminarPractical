@@ -253,14 +253,14 @@ class SVDNA(MapTransform, Randomizable):
                  histogram_matching_degree: float = 0.5,
                  allow_missing_keys: bool = False, 
                  prob: float = 1.0,
-                 source_domain: str = "Spectralis", 
+                 source_domains: List = ["Spectralis", "Topcon", "Cirrus"], 
                  data_path: Path = Path(Path.cwd() / 'data/Retouch-Preprocessed/train')) -> None:
         super().__init__(keys, allow_missing_keys)
 
         self.prob = np.clip(prob, 0.0, 1.0)
-        self.source_domain = source_domain
+        self.source_domains = source_domains
         self.named_domain_folder = Path.cwd() / 'data/RETOUCH/TrainingSet-Release' # path holding the img folders sorted by domain
-        self.target_dataset = self.filter_target_domain(data_path, source_domain)
+        self.target_dataset = self.filter_target_domain(data_path, source_domains)
         self.domains = ['Spectralis', 'Topcon', 'Cirrus']
         self.histogram_matching_degree = histogram_matching_degree
 
@@ -268,15 +268,15 @@ class SVDNA(MapTransform, Randomizable):
         d = dict(data)
         for ki, key in enumerate(self.keys):
             img = data[key]
-            img = self.perform_SVDNA(img, self.target_dataset, self.source_domain, self.histogram_matching_degree)
+            img = self.perform_SVDNA(img, self.target_dataset, self.source_domains, self.histogram_matching_degree)
 
             d[key] = img
         return d
 
-    def filter_target_domain(self, data_path, source_domain):
+    def filter_target_domain(self, data_path, source_domains):
         '''
         data_path: Path to the training set folder where all images are not sorted by domains.
-        source_domain: The source domain for the upcoming SVDNA process.
+        source_domains: The source domain for the upcoming SVDNA process.
 
         Returns: a dictionary containing three lists of dictionaries of the following structure:
                     {source domain: [{img: img1, label: label1}, {img: img2, label: label2}, ...], 
@@ -307,7 +307,7 @@ class SVDNA(MapTransform, Randomizable):
 
                     if 'image' in subfolders and 'label_image' in subfolders:
                         
-                        if domain == source_domain:
+                        if domain in source_domains:
                             continue
                         
                         else:
@@ -321,7 +321,7 @@ class SVDNA(MapTransform, Randomizable):
         return domains_dict
     
 
-    def perform_SVDNA(self, source, target_dataset, source_domain, histogram_matching_degree):
+    def perform_SVDNA(self, source, target_dataset, source_domains, histogram_matching_degree):
         '''
         Function takes an img from source domain and applied SVDNA to it.
         In order to do that, we have to sample 2 things for each picture:
@@ -334,7 +334,7 @@ class SVDNA(MapTransform, Randomizable):
         
         domain = np.random.choice(self.domains)
 
-        if domain != source_domain:
+        if domain not in source_domains:
             # randomly sample k and target image to get style from
             k = self.R.randint(20,50)
             
