@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, List
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import random_split
@@ -11,8 +11,9 @@ np.random.seed(99)
 torch.manual_seed(99)
 
 
-SOURCE_DOMAIN = 'Spectralis'
+SOURCE = 'Spectralis'
 DOMAINS = ['Spectralis', 'Topcon', 'Cirrus']
+TARGETS = [domain for domain in DOMAINS if domain != SOURCE]
 
 
 class OCTDatasetPrep(Dataset):
@@ -20,33 +21,32 @@ class OCTDatasetPrep(Dataset):
     This class prepares the dataset for the SVDNA process. It filters the source domain and splits the dataset into training, validation and test sets.
     '''
     
-    def __init__(self, data_path: str, generate_empty_labels=False, source_domain: str = 'Spectralis'):
+    def __init__(self, data_path: str, generate_empty_labels=False, source_domains: List = ['Spectralis', 'Topcon', 'Cirrus']):
 
         self.data_path = Path(data_path)
 
         self.named_domain_folder = Path.cwd() / 'data/RETOUCH/TrainingSet-Release' # path holding the img folders sorted by domain
 
         self.domains = os.listdir(self.named_domain_folder) # gets only the names of domains
-        self.source_domain = source_domain
+        self.source_domains = source_domains
 
         if generate_empty_labels:
             self.generate_black_images() 
 
         try:
-            self.source_domain_dict, self.num_domains = self.filter_source_domain(self.data_path, self.source_domain, self.domains)
+            self.source_domain_dict, self.num_domains = self.filter_source_domain(self.data_path, self.source_domains, self.domains)
         except IndexError:
             raise Exception("LABEL IMAGES MISSING! Have you tried generating all missing label images?")
-        
-        self.source_domain_list = self.source_domain_dict[self.source_domain] # make this smoother
+        self.source_domain_list = [folder for domain in self.source_domains for folder in self.source_domain_dict[domain]]
 
     def __len__(self):
-        return len(self.source_domain_dict)
+        return len(self.source_domain_list)
 
 
-    def filter_source_domain(self, data_path, source_domain, domains):
+    def filter_source_domain(self, data_path, source_domains, domains):
         '''
         data_path: Path to the training set folder where all images are not sorted by domains.
-        source_domain: The source domain for the upcoming SVDNA process.
+        source_domains: The source domain for the upcoming SVDNA process.
 
         Returns: a dictionary containing three lists of dictionaries of the following structure:
                     {source domain: [{img: img1, label: label1}, {img: img2, label: label2}, ...], 
@@ -76,7 +76,7 @@ class OCTDatasetPrep(Dataset):
 
                     if 'image' in subfolders and 'label_image' in subfolders:
                         
-                        if domain == source_domain:
+                        if domain in source_domains:
             
                             sliced_images = sorted(os.listdir(data_path / img_folder / 'image'))
                             sliced_labels = sorted(os.listdir(data_path / img_folder / 'label_image'))
