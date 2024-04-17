@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 
 import torch
 from torch.optim import lr_scheduler
-from ignite.handlers import create_lr_scheduler_with_warmup
 #from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import wandb
