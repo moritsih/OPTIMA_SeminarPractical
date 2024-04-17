@@ -21,11 +21,12 @@ class OCTDatasetPrep(Dataset):
     This class prepares the dataset for the SVDNA process. It filters the source domain and splits the dataset into training, validation and test sets.
     '''
     
-    def __init__(self, data_path: str, generate_empty_labels=False, source_domains: List = ['Spectralis', 'Topcon', 'Cirrus']):
+    def __init__(self, data_path: str, generate_empty_labels=False, source_domains: List = ['Spectralis', 'Topcon', 'Cirrus'], named_domain_folder: str = 'data/RETOUCH/TrainingSet-Release'):
 
         self.data_path = Path(data_path)
+        self.testset_path = Path.cwd() / 'data/Retouch-Preprocessed/test'
 
-        self.named_domain_folder = Path.cwd() / 'data/RETOUCH/TrainingSet-Release' # path holding the img folders sorted by domain
+        self.named_domain_folder = Path.cwd() / named_domain_folder # path holding the img folders sorted by domain
 
         self.domains = os.listdir(self.named_domain_folder) # gets only the names of domains
         self.source_domains = source_domains
@@ -34,7 +35,7 @@ class OCTDatasetPrep(Dataset):
             self.generate_black_images() 
 
         try:
-            self.source_domain_dict, self.num_domains = self.filter_source_domain(self.data_path, self.source_domains, self.domains)
+            self.source_domain_dict, self.num_domains = self.filter_source_domain(self.data_path, self.source_domains, self.domains, self.named_domain_folder)
         except IndexError:
             raise Exception("LABEL IMAGES MISSING! Have you tried generating all missing label images?")
         self.source_domain_list = [folder for domain in self.source_domains for folder in self.source_domain_dict[domain]]
@@ -43,7 +44,7 @@ class OCTDatasetPrep(Dataset):
         return len(self.source_domain_list)
 
 
-    def filter_source_domain(self, data_path, source_domains, domains):
+    def filter_source_domain(self, data_path, source_domains, domains, named_domain_folder):
         '''
         data_path: Path to the training set folder where all images are not sorted by domains.
         source_domains: The source domain for the upcoming SVDNA process.
@@ -55,7 +56,7 @@ class OCTDatasetPrep(Dataset):
         '''
 
         # creates dict e.g. {'cirrus':['path1', 'path2', ...], 'topcon':['path1', 'path2', ...]}
-        img_folders_sorted_by_domain = {domain:os.listdir(self.named_domain_folder / domain) for domain in domains}
+        img_folders_sorted_by_domain = {domain:os.listdir(named_domain_folder / domain) for domain in domains}
 
         # restructure source data into a list of dictionaries, where each dictionary has keys img and label
 
@@ -83,6 +84,7 @@ class OCTDatasetPrep(Dataset):
                             
                             for i in range(len(sliced_images)):
                                 if (sliced_images[i] == sliced_labels[i]) or (sliced_images[i][:-4] + '_empty.png' == sliced_labels[i]):
+
                                     list_of_dicts_images.append(
                                         {'img': str(data_path / img_folder / 'image' / sliced_images[i]), 'label': str(data_path / img_folder / 'label_image' / sliced_labels[i])}
                                         )
@@ -150,13 +152,55 @@ class OCTDatasetPrep(Dataset):
         # Delete the generated black images
         self.generate_black_images(delete_images=True)
 
-    def get_datasets(self, dataset_split: Sequence[float] = [0.7, 0.2, 0.1]):
+
+    def get_test_dataset(self, testset_path):
+
+        test_data_list = []
+        
+        for img_folder in os.listdir(testset_path):
+
+            subfolders = os.listdir(testset_path / img_folder)
+
+            if 'image' in subfolders and 'label_image' in subfolders:
+
+                sliced_images = sorted(os.listdir(testset_path / img_folder / 'image'))
+                sliced_labels = sorted(os.listdir(testset_path / img_folder / 'label_image'))
+                
+                for i in range(len(sliced_images)):
+                    if (sliced_images[i] == sliced_labels[i]) or (sliced_images[i][:-4] + '_empty.png' == sliced_labels[i]):
+
+                        test_data_list.append(
+                            {'img': str(testset_path / img_folder / 'image' / sliced_images[i]), 'label': str(testset_path / img_folder / 'label_image' / sliced_labels[i])}
+                            )
+    
+        return test_data_list
+
+
+
+    def get_datasets(self, dataset_split: Sequence[float] = [0.7, 0.2, 0.1], use_official_testset=False):
         '''
         Returns the datasets in the order:
         training_set, validation_set, test_set
         '''
 
         dataset_len = len(self.source_domain_list)
+
+        if use_official_testset:
+            test_set = self.get_test_dataset(self.testset_path)
+            dataset_split = [dataset_split[0], 1-dataset_split[0]]
+
+            val_len = int(dataset_len * dataset_split[0])
+            train_len = dataset_len - val_len
+
+            self.training_set, self.validation_set = random_split(self.source_domain_list, [train_len, val_len])
+            self.test_set = test_set
+            print(f"Training set: {len(self.training_set)}")
+            print(f"Validation set: {len(self.validation_set)}")
+            print(f"Test set: {len(self.test_set)}")
+
+            return self.training_set, self.validation_set, self.test_set
+
+
         test_len = int(dataset_len * dataset_split[2])
         val_len = int(dataset_len * dataset_split[1])
         train_len = dataset_len - test_len - val_len
