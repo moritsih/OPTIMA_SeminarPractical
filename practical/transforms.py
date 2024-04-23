@@ -494,8 +494,10 @@ class ImageVisualizer(MapTransform):
                 ax[i].imshow(image, cmap='gray')
                 ax[i].set_title(key)
             elif image.shape[0] == 4:
-                #print("only showing segmentation maps")
+            #elif image.shape[0] == 3:
+                print("only showing segmentation maps")
                 image = np.transpose(image[1:, :, :], (1, 2, 0))
+                #image = np.transpose(image, (1, 2, 0))
                 ax[i].imshow(image)
                 ax[i].set_title(key)
         

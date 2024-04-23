@@ -26,7 +26,7 @@ def train_one_epoch(model, train_loader, criterion, optimizer, device):
 
         optimizer.zero_grad()
 
-        outputs = model(inputs)
+        outputs = model(inputs)#[0]
         loss = criterion(outputs, masks)
         loss.backward()
         optimizer.step()
@@ -54,7 +54,7 @@ def validate(model, val_loader, criterion, device, epoch):
             #labels = sample['label'].to(device)
             masks = sample['masks'].to(device)
 
-            outputs = model(inputs)
+            outputs = model(inputs)#[0]
             loss = criterion(outputs, masks)
 
             running_loss += loss.item()
@@ -67,7 +67,7 @@ def validate(model, val_loader, criterion, device, epoch):
 
             for i in range(output_to_save.shape[0]):
                 img_path = os.path.join(save_path, f"b{batch_idx}img{i+1}.png")
-                cv2.imwrite(img_path, output_to_save[i, 1:, :, :].permute(1, 2, 0).cpu().numpy() * 255)
+                cv2.imwrite(img_path, output_to_save[i, :, :, :].permute(1, 2, 0).cpu().numpy() * 255)
 
 
     epoch_loss = running_loss / len(val_loader)
@@ -85,7 +85,7 @@ def test(model, test_loader, criterion, device):
             #labels = sample['label'].to(device)
             masks = sample['masks'].to(device)
 
-            outputs = model(inputs)
+            outputs = model(inputs)[0]
             loss = criterion(outputs, masks)
 
             running_loss += loss.item()
@@ -122,7 +122,7 @@ def train(model, train_loader, val_loader, criterion, optimizer, scheduler, devi
         
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
         val_loss = validate(model, val_loader, criterion, device, epoch)
-        scheduler.step()
+        scheduler.step(val_loss)
         best_loss = save_model(model, val_loss, best_loss, save_path)
 
         wandb.log({"train_loss": train_loss, 
@@ -146,6 +146,24 @@ def map_grayscale_to_channels(image):
     mapped_image = np.zeros((image.shape[0], image.shape[1], len(np.unique(image))), dtype=np.uint8)
 
     for i, pixel_value in enumerate(np.unique(image)):
+        print("Pixel value: ", pixel_value)
+        mapped_image[image == pixel_value, i] = 255
+
+
+    if len(np.unique(image)) == 1: # in case an empty (black) image label is encountered, the unique values will be 1
+        print("Empty image encountered")
+        print(mapped_image.shape)
+        return mapped_image
+    
+    return mapped_image[:, :, 1:4]
+
+
+def map_grayscale_to_channels_four_channel(image):
+    # Create an empty array with shape (height, width, 4)
+    
+    mapped_image = np.zeros((image.shape[0], image.shape[1], len(np.unique(image))), dtype=np.uint8)
+
+    for i, pixel_value in enumerate(np.unique(image)):
         mapped_image[image == pixel_value, i] = 255
 
 
@@ -156,6 +174,7 @@ def map_grayscale_to_channels(image):
 
 
 def plot_img_label_pred(img, pred, mask):
+    
     fig, ax = plt.subplots(1, 3, figsize=(20, 5))
     
     img = img.squeeze().cpu().detach().numpy()

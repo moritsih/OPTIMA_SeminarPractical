@@ -201,9 +201,9 @@ class OCTDatasetPrep(Dataset):
             return self.training_set, self.validation_set, self.test_set
 
 
-        test_len = int(dataset_len * dataset_split[2])
+        train_len = int(dataset_len * dataset_split[0])
         val_len = int(dataset_len * dataset_split[1])
-        train_len = dataset_len - test_len - val_len
+        test_len = dataset_len - train_len - val_len
 
         self.training_set, self.validation_set, self.test_set = random_split(self.source_domain_list, [train_len, val_len, test_len])
         print(f"Training set: {len(self.training_set)}")
