@@ -185,15 +185,17 @@ class OCTDatasetPrep(Dataset):
 
         dataset_len = len(self.source_domain_list)
 
+
         if use_official_testset:
             test_set = self.get_test_dataset(self.testset_path)
             dataset_split = [dataset_split[0], 1-dataset_split[0]]
 
-            val_len = int(dataset_len * dataset_split[0])
+            val_len = int(dataset_len * dataset_split[1])
             train_len = dataset_len - val_len
 
             self.training_set, self.validation_set = random_split(self.source_domain_list, [train_len, val_len])
             self.test_set = test_set
+            print("Total dataset length: ", dataset_len + len(test_set))
             print(f"Training set: {len(self.training_set)}")
             print(f"Validation set: {len(self.validation_set)}")
             print(f"Test set: {len(self.test_set)}")
@@ -206,6 +208,7 @@ class OCTDatasetPrep(Dataset):
         test_len = dataset_len - train_len - val_len
 
         self.training_set, self.validation_set, self.test_set = random_split(self.source_domain_list, [train_len, val_len, test_len])
+        print("Total dataset length: ", dataset_len)
         print(f"Training set: {len(self.training_set)}")
         print(f"Validation set: {len(self.validation_set)}")
         print(f"Test set: {len(self.test_set)}")
