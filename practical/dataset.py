@@ -21,7 +21,13 @@ class OCTDatasetPrep(Dataset):
     This class prepares the dataset for the SVDNA process. It filters the source domain and splits the dataset into training, validation and test sets.
     '''
     
-    def __init__(self, data_path: str, generate_empty_labels=False, source_domains: List = ['Spectralis', 'Topcon', 'Cirrus'], named_domain_folder: str = 'data/RETOUCH/TrainingSet-Release'):
+    def __init__(
+                 self, 
+                 data_path: str, 
+                 generate_empty_labels=False, 
+                 source_domains: List = ['Spectralis', 'Topcon', 'Cirrus'], 
+                 named_domain_folder: str = 'data/RETOUCH/TrainingSet-Release'
+                 ):
 
         self.data_path = Path(data_path)
         self.testset_path = Path.cwd() / 'data/Retouch-Preprocessed/test'
