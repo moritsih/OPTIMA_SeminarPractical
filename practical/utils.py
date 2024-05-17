@@ -4,6 +4,11 @@ import cv2
 from pathlib import Path
 import matplotlib.pyplot as plt
 
+from monai.transforms import *
+from transforms import *
+
+import monai
+
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 #from torch.utils.tensorboard import SummaryWriter
@@ -13,125 +18,91 @@ import wandb
 np.random.seed(99)
 torch.manual_seed(99)
 
+# utils for result output
 
-# important for training
+def compute_dice_score(pred, mask):
 
-def train_one_epoch(model, train_loader, criterion, optimizer, device):
-    model.train()
-    running_loss = 0.0
-    for batch_idx, sample in enumerate(train_loader):
-        inputs = sample['img'].to(device)
-        #labels = sample['label'].to(device)
-        masks = sample['masks'].to(device)
+    '''
+    Compute the dice score for each class in the mask
+    '''
 
-        optimizer.zero_grad()
+    dice_scores = []
 
-        outputs = model(inputs)#[0]
-        loss = criterion(outputs, masks)
-        loss.backward()
-        optimizer.step()
+    for i in range(1, mask.shape[1]):
+        dice_score = 1 - monai.losses.DiceLoss(sigmoid=True)(pred[:, i], mask[:, i])
+        dice_scores.append(dice_score.item())
 
-        running_loss += loss.item()
-
-        print(f"Batch {batch_idx+1}/{len(train_loader)}, Loss: {loss.item():.4f}")
-
-    epoch_loss = running_loss / len(train_loader)
-    return epoch_loss
+    return dice_scores
 
 
-def validate(model, val_loader, criterion, device, epoch):
+
+def make_results_table(model, dataset, device, cfg, model_name):
+
+    '''
+    Using tabulate, the model is applied to the test dataset and the mean dice score is calculated for each class.
+    The results are then saved in a table and returned.
+    '''
 
     model.eval()
-    running_loss = 0.0
-    with torch.no_grad():
 
-        if not os.path.isdir(f'val_predictions/epoch{epoch+1}'):
-            os.mkdir(f'val_predictions/epoch{epoch+1}')
-        save_path = f'val_predictions/epoch{epoch+1}'
+    results = []
 
-        for batch_idx, sample in enumerate(val_loader):
-            inputs = sample['img'].to(device)
-            #labels = sample['label'].to(device)
-            masks = sample['masks'].to(device)
+    for i, sample in enumerate(tqdm(dataset)):
+        img = sample['img'].unsqueeze(0).to(device)
+        mask = sample['masks'].unsqueeze(0).to(device)
 
-            outputs = model(inputs)#[0]
-            loss = criterion(outputs, masks)
+        pred = model(img)
+        pred = torch.sigmoid(pred)
 
-            running_loss += loss.item()
+        # thresholding
+        pred[pred > 0.5] = 1
+        pred[pred <= 0.5] = 0
 
-            output_to_save = torch.sigmoid(outputs[:5])
+        dice_scores = compute_dice_score(pred, mask)
+        results.append(dice_scores)
 
-            # thresholding
-            output_to_save[output_to_save > 0.5] = 1
-            output_to_save[output_to_save <= 0.5] = 0
+    results = np.array(results)
+    mean_dice_scores = np.round(np.mean(results, axis=0), 3)
 
-            for i in range(output_to_save.shape[0]):
-                img_path = os.path.join(save_path, f"b{batch_idx}img{i+1}.png")
-                cv2.imwrite(img_path, output_to_save[i, :, :, :].permute(1, 2, 0).cpu().numpy() * 255)
+    table = [model_name, mean_dice_scores[0], mean_dice_scores[1], mean_dice_scores[2]]
+
+    return table
 
 
-    epoch_loss = running_loss / len(val_loader)
-    wandb.log({"val_loss": epoch_loss})
-    #print(f"Validation loss: {epoch_loss:.4f}")
-    return epoch_loss
-
-
-def test(model, test_loader, criterion, device):
-    model.eval()
-    running_loss = 0.0
-    with torch.no_grad():
-        for batch_idx, sample in enumerate(test_loader):
-            inputs = sample['img'].to(device)
-            #labels = sample['label'].to(device)
-            masks = sample['masks'].to(device)
-
-            outputs = model(inputs)[0]
-            loss = criterion(outputs, masks)
-
-            running_loss += loss.item()
-
-    epoch_loss = running_loss / len(test_loader)
-    wandb.log({"test_loss": epoch_loss})
-    #print(f"Test loss: {epoch_loss:.4f}")
-    return epoch_loss
+table = [['Model', 'IRF', 'SRF', 'PED']]
 
 
 
-def save_model(model, loss, best_loss, save_path):
-    if loss < best_loss:
-        best_loss = loss
-        torch.save(model.state_dict(), save_path)
-        #print("Model saved.")
-    return best_loss
 
 
+'''
+Rewrite the loss function used so I can log the two losses separately
+'''
 
-def load_model(model, load_path):
-    model.load_state_dict(torch.load(load_path))
-    return model
+class DiceCELossSplitter(monai.losses.DiceCELoss):
 
+    def forward(self, input: torch.Tensor, target: torch.Tensor):
+        """
+        Args:
+            input: the shape should be BNH[WD].
+            target: the shape should be BNH[WD] or B1H[WD].
 
+        Raises:
+            ValueError: When number of dimensions for input and target are different.
+            ValueError: When number of channels for target is neither 1 nor the same as input.
 
-def train(model, train_loader, val_loader, criterion, optimizer, scheduler, device, epochs, save_path):
+        """
+        if len(input.shape) != len(target.shape):
+            raise ValueError(
+                "the number of dimensions for input and target should be the same, "
+                f"got shape {input.shape} and {target.shape}."
+            )
 
-    wandb.watch(model, criterion, log="all", log_freq=10)
-    best_loss = float('inf')
+        dice_loss = self.dice(input, target)
+        ce_loss = self.ce(input, target) if input.shape[1] != 1 else self.bce(input, target)
+        total_loss: torch.Tensor = self.lambda_dice * dice_loss + self.lambda_ce * ce_loss
 
-    for epoch in tqdm(range(epochs), desc="Training", unit="epoch"):
-        #print(f"Epoch {epoch+1}/{epochs}")
-        
-        train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
-        val_loss = validate(model, val_loader, criterion, device, epoch)
-        scheduler.step(val_loss)
-        best_loss = save_model(model, val_loss, best_loss, save_path)
-
-        wandb.log({"train_loss": train_loss, 
-                   "val_loss": val_loss,
-                   "lr": optimizer.param_groups[0]['lr'],
-                   "epoch": epoch+1,
-                   "best_loss": best_loss})
-
-    return model
+        return dice_loss, ce_loss, total_loss
 
 
 
@@ -156,6 +127,8 @@ def map_grayscale_to_channels(image):
         return mapped_image
     
     return mapped_image[:, :, 1:4]
+
+
 
 
 def map_grayscale_to_channels_four_channel(image):
