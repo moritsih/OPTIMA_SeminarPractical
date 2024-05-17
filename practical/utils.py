@@ -5,9 +5,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 import torch
-from torch.optim import lr_scheduler
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 #from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
+from tqdm.notebook import tqdm
 import wandb
 
 np.random.seed(99)
