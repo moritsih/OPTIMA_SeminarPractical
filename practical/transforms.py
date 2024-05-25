@@ -332,7 +332,8 @@ class SVDNA(MapTransform, Randomizable):
 
         '''
         
-        domain = np.random.choice(self.domains)
+        domain_idx = self.R.randint(len(self.domains))
+        domain = self.domains[domain_idx]
 
         if domain not in source_domains:
             # randomly sample k and target image to get style from
@@ -340,12 +341,15 @@ class SVDNA(MapTransform, Randomizable):
             
             target = target_dataset[domain][self.R.randint(0, len(target_dataset[domain]))]['img']
 
-            source_img_raw, target_img_raw, _, _, img_svdna, source_noise_adapt_no_histogram = self.svdna(k, target, source, histogram_matching_degree)
-            #print("SVDNA performed.", img_svdna.shape, type(img_svdna))
+            source_img_raw, target_img_raw, _, _, img_svdna, source_noise_adapt_no_histogram = self.svdna(k, 
+                                                                                                          target, 
+                                                                                                          source, 
+                                                                                                          histogram_matching_degree)
+            print("SVDNA performed.")
 
         else:
             img_svdna = cv2.imread(source, 0)
-            #print("Source domain chosen. No SVDNA performed.")
+            print("Source domain chosen. No SVDNA performed.")
 
         return img_svdna
     
