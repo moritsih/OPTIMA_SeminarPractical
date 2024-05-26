@@ -24,7 +24,7 @@ torch.manual_seed(99)
 
 class Config():
 
-    def __init__(self):
+    def __init__(self, source_domains: List[str] = ['Spectralis', 'Topcon', 'Cirrus']):
 
         # directory where img folders are still sorted by domain (but unprocessed OCT images)
         self.name_dir = Path(Path.cwd() / 'data/RETOUCH/TrainingSet-Release/') 
@@ -43,13 +43,13 @@ class Config():
             os.mkdir(Path(Path.cwd() / 'val_predictions'))
 
 
-        self.source_domains = ['Spectralis', 'Topcon', 'Cirrus']
+        self.source_domains = source_domains
 
 
         # transforms
         self.train_transforms = Compose([
             #CustomImageLoader(keys=['img', 'label']), # if SVDNA should not be performed, uncomment this and comment the following two lines
-            SVDNA(keys=['img'], histogram_matching_degree=.5),
+            SVDNA(keys=['img'], histogram_matching_degree=.5, source_domains=self.source_domains),
             CustomImageLoader(keys=['label']),
             ConvertLabelMaskToChannel(keys=['label'], target_keys=["masks"]),
             ExpandChannelDim(keys=['img', 'label']),
