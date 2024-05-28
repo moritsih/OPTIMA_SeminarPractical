@@ -18,65 +18,6 @@ import wandb
 np.random.seed(99)
 torch.manual_seed(99)
 
-# utils for result output
-
-def compute_dice_score(pred, mask):
-
-    '''
-    Compute the dice score for each class in the mask
-    '''
-
-    dice_scores = []
-
-    for i in range(1, mask.shape[1]):
-        dice_score = 1 - monai.losses.DiceLoss(sigmoid=True)(pred[:, i], mask[:, i])
-        dice_scores.append(dice_score.item())
-
-    return dice_scores
-
-
-
-def make_results_table(model, dataset, device, cfg, model_name):
-    '''
-    Using tabulate, the model is applied to the test dataset and the mean dice score is calculated for each class.
-    The results are then saved in a table and returned.
-    '''
-    model.eval()
-
-    results = []
-
-    with torch.no_grad():  # Ensure no gradients are calculated
-        for i, sample in enumerate(tqdm(dataset)):
-            img = sample['img'].unsqueeze(0).to(device)
-            mask = sample['masks'].unsqueeze(0).to(device)
-
-            pred = model(img)
-            pred = torch.sigmoid(pred)
-
-            # thresholding
-            pred[pred > 0.5] = 1
-            pred[pred <= 0.5] = 0
-
-            dice_scores = compute_dice_score(pred, mask)
-            results.append(dice_scores) 
-
-            del img, mask, pred  # Explicitly delete tensors to free memory
-            torch.cuda.empty_cache()  # Free up unused memory
-
-    results = np.array(results)
-    mean_dice_scores = np.round(np.mean(results, axis=0), 3)
-
-    table = [model_name, mean_dice_scores[0], mean_dice_scores[1], mean_dice_scores[2]]
-
-    return table
-
-
-
-table = [['Model', 'IRF', 'SRF', 'PED']]
-
-
-
-
 
 '''
 Rewrite the loss function used so I can log the two losses separately

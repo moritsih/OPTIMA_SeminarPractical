@@ -345,11 +345,11 @@ class SVDNA(MapTransform, Randomizable):
                                                                                                           target, 
                                                                                                           source, 
                                                                                                           histogram_matching_degree)
-            print("SVDNA performed.")
+            #print("SVDNA performed.")
 
         else:
             img_svdna = cv2.imread(source, 0)
-            print("Source domain chosen. No SVDNA performed.")
+            #print("Source domain chosen. No SVDNA performed.")
 
         return img_svdna
     
@@ -369,13 +369,14 @@ class SVDNA(MapTransform, Randomizable):
         resized_target=np.asarray(Image.fromarray(target_img).resize((h, w), Image.NEAREST))
         resized_src=np.asarray(Image.fromarray(source_img).resize((h, w), Image.NEAREST))
 
-
+        #print("A")
         u_target, s_target, vh_target = np.linalg.svd(resized_target, full_matrices=False)
+        #print("target done")
         u_source, s_source, vh_source = np.linalg.svd(resized_src, full_matrices=False)
-
+        #print("source done")
         thresholded_singular_target = s_target
         thresholded_singular_target[0:k] = 0
-
+        #print("B")
         thresholded_singular_source = s_source
         thresholded_singular_source[k:] = 0
 
@@ -390,11 +391,11 @@ class SVDNA(MapTransform, Randomizable):
         noise_adapted_im = content_src + target_style
 
         noise_adapted_im_clipped = noise_adapted_im.clip(0, 255).astype(np.uint8)
-
+        #print("C")
         transformHist = A.Compose([
         A.HistogramMatching([resized_target], blend_ratio=(histo_matching_degree, histo_matching_degree), read_fn=self.readIm, p=1)
         ])
-
+        #print("D")
         transformed = transformHist(image=noise_adapted_im_clipped)
         svdna_im = transformed["image"]
 

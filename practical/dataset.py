@@ -6,6 +6,9 @@ from typing import Sequence, List
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import random_split
+import numpy as np
+import cv2
+from tqdm import tqdm
 
 np.random.seed(99)
 torch.manual_seed(99)
@@ -19,6 +22,18 @@ TARGETS = [domain for domain in DOMAINS if domain != SOURCE]
 class OCTDatasetPrep(Dataset):
     '''
     This class prepares the dataset for the SVDNA process. It filters the source domain and splits the dataset into training, validation and test sets.
+    It also generates black images for missing label images in the label_image folder.
+
+    Args:
+        data_path (str): Path to the training set folder where all images are not sorted by domains.
+        generate_empty_labels (bool, optional): Flag to generate black images for missing files in the label_image folder. Defaults to False.
+        source_domains (List, optional): The source domain for the upcoming SVDNA process. Defaults to ['Spectralis', 'Topcon', 'Cirrus'].
+        named_domain_folder (str, optional): Path to the folder where the img folders are sorted by domain. Defaults to 'data/RETOUCH/TrainingSet-Release'.
+        get_decompositions (bool, optional): Flag to perform SVD on the images. Defaults to False.
+        delete_decompositions (bool, optional): Flag to delete the decompositions. Defaults to False.
+
+    Raises:
+        Exception: Raises an exception if the label images are missing.
     '''
     
     def __init__(
@@ -26,7 +41,9 @@ class OCTDatasetPrep(Dataset):
                  data_path: str, 
                  generate_empty_labels=False, 
                  source_domains: List = ['Spectralis', 'Topcon', 'Cirrus'], 
-                 named_domain_folder: str = 'data/RETOUCH/TrainingSet-Release'
+                 named_domain_folder: str = 'data/RETOUCH/TrainingSet-Release',
+                 get_decompositions=False,
+                 delete_decompositions=False
                  ):
 
         self.data_path = Path(data_path)
@@ -40,10 +57,14 @@ class OCTDatasetPrep(Dataset):
         if generate_empty_labels:
             self.generate_black_images() 
 
+        self.get_decompositions = get_decompositions
+        self.delete_decompositions = delete_decompositions
+
         try:
             self.source_domain_dict, self.num_domains = self.filter_source_domain(self.data_path, self.source_domains, self.domains, self.named_domain_folder)
         except IndexError:
             raise Exception("LABEL IMAGES MISSING! Have you tried generating all missing label images?")
+        
         self.source_domain_list = [folder for domain in self.source_domains for folder in self.source_domain_dict[domain]]
 
     def __len__(self):
@@ -54,11 +75,6 @@ class OCTDatasetPrep(Dataset):
         '''
         data_path: Path to the training set folder where all images are not sorted by domains.
         source_domains: The source domain for the upcoming SVDNA process.
-
-        Returns: a dictionary containing three lists of dictionaries of the following structure:
-                    {source domain: [{img: img1, label: label1}, {img: img2, label: label2}, ...], 
-                    target domain 1: [{img: img1}, {img: img2}, ...],
-                    target domain 2: [{img: img1}, {img: img2}, ...]}
         '''
 
         # creates dict e.g. {'cirrus':['path1', 'path2', ...], 'topcon':['path1', 'path2', ...]}
@@ -84,9 +100,9 @@ class OCTDatasetPrep(Dataset):
                     if 'image' in subfolders and 'label_image' in subfolders:
                         
                         if domain in source_domains:
-            
-                            sliced_images = sorted(os.listdir(data_path / img_folder / 'image'))
-                            sliced_labels = sorted(os.listdir(data_path / img_folder / 'label_image'))
+
+                            sliced_images = sorted([x for x in os.listdir(data_path / img_folder / 'image') if ".png" in x])
+                            sliced_labels = sorted([x for x in os.listdir(data_path / img_folder / 'label_image') if ".png" in x])
                             
                             for i in range(len(sliced_images)):
                                 if (sliced_images[i] == sliced_labels[i]) or (sliced_images[i][:-4] + '_empty.png' == sliced_labels[i]):
@@ -101,6 +117,23 @@ class OCTDatasetPrep(Dataset):
             domains_dict[domain] = list_of_dicts_images
                                         
         return domains_dict, len(domains)
+
+    def perform_svd(self):
+        if self.get_decompositions:
+            for data in tqdm(self.source_domain_list, desc="Performing SVD"):
+                img_path = data['img']
+                img = cv2.imread(img_path, 0)  # Read image in grayscale
+                U, S, V = np.linalg.svd(img)
+                svd_file = img_path.replace('.png', '.npz')
+                np.savez(svd_file, U=U, S=S, V=V)
+
+        if self.delete_decompositions:
+            for data in tqdm(self.source_domain_list, desc="Deleting decompositions"):
+                img_path = data['img']
+                svd_file = img_path.replace('.png', '.npz')
+                if os.path.exists(svd_file):
+                    os.remove(svd_file)
+
 
     def generate_black_images(self, delete_images=False):
         """
@@ -123,10 +156,10 @@ class OCTDatasetPrep(Dataset):
                     label_folder = subfolder_path / 'label_image'
 
                     # Get the set of filenames in the 'image' folder
-                    image_files = sorted(set(os.listdir(image_folder)))
+                    image_files = sorted(set([x for x in os.listdir(image_folder) if ".png" in x]))
 
                     # Get the set of filenames in the 'label_image' folder
-                    label_files = sorted(set(os.listdir(label_folder)))
+                    label_files = sorted(set([x for x in os.listdir(label_folder) if ".png" in x]))
 
                     # Find the filenames that are in 'label_image' but not in 'image'
                     missing_files = [i for i in image_files if i not in label_files]
@@ -136,7 +169,10 @@ class OCTDatasetPrep(Dataset):
                         file_path = label_folder / file
 
                         # find the shape of the input image to create corresponding target
-                        file_shape = cv2.imread(str(image_folder / file), 0).shape
+                        try:
+                            file_shape = cv2.imread(str(image_folder / file), 0).shape
+                        except AttributeError:
+                            print(f"Error reading file: {file}")
 
                         black_image = np.zeros(file_shape, dtype='uint8')
 
