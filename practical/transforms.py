@@ -345,7 +345,7 @@ class SVDNA(MapTransform, Randomizable):
                                                                                                           target, 
                                                                                                           source, 
                                                                                                           histogram_matching_degree)
-            print("SVDNA performed.")
+            #print("SVDNA performed.")
 
         else:
             img_svdna = cv2.imread(source, 0)
