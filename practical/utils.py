@@ -47,6 +47,39 @@ class DiceCELossSplitter(monai.losses.DiceCELoss):
         total_loss: torch.Tensor = self.lambda_dice * dice_loss + self.lambda_ce * ce_loss
 
         return dice_loss, ce_loss, total_loss
+    
+
+
+class GeneralizedDiceCELoss(monai.losses.GeneralizedDiceLoss):
+
+    def __init__(self, lambda_ce=1.0, lambda_dice=1.0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lambda_ce = lambda_ce
+        self.lambda_dice = lambda_dice
+
+    def forward(self, input: torch.Tensor, target: torch.Tensor):
+        """
+        Args:
+            input: the shape should be BNH[WD].
+            target: the shape should be BNH[WD] or B1H[WD].
+
+        Raises:
+            ValueError: When number of dimensions for input and target are different.
+            ValueError: When number of channels for target is neither 1 nor the same as input.
+
+        """
+        if len(input.shape) != len(target.shape):
+            raise ValueError(
+                "the number of dimensions for input and target should be the same, "
+                f"got shape {input.shape} and {target.shape}."
+            )
+
+        dice_loss = self(input, target)
+        ce_loss = self.ce(input, target) if input.shape[1] != 1 else self.bce(input, target)
+
+        total_loss: torch.Tensor = self.lambda_dice * dice_loss + self.lambda_ce * ce_loss
+
+        return dice_loss, ce_loss, total_loss
 
 
 
