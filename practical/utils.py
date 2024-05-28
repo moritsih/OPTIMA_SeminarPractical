@@ -8,15 +8,41 @@ from monai.transforms import *
 from transforms import *
 
 import monai
+import pandas as pd
+import tabulate
 
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-#from torch.utils.tensorboard import SummaryWriter
+from lightning.pytorch.callbacks import Callback
 from tqdm.notebook import tqdm
 import wandb
 
 np.random.seed(99)
 torch.manual_seed(99)
+
+
+class AggregateTestingResultsCallback(Callback):
+    def on_test_end(self, trainer, pl_module):
+
+        self.results = pd.DataFrame.from_dict(pl_module.results)
+        
+        # group by condition and calculate mean and std in separate columns
+        grouped_results = self.results.groupby(["Model", "Condition"]).agg({
+            "Accuracy": ["mean", "std"],
+            "F1": ["mean", "std"],
+            "Precision": ["mean", "std"],
+            "Recall": ["mean", "std"],
+            "Specificity": ["mean", "std"],
+            "Model": "first"
+        })
+        
+        # print the results
+        print(tabulate(grouped_results, headers="keys", tablefmt="pretty"))
+
+        try:
+            self.results.to_csv(f"{pl_module.cfg.results_path}results_{pl_module.experiment_name}.csv")
+        except:
+            self.results.to_csv(f"results_{pl_module.experiment_name}.csv")
 
 
 '''
@@ -48,43 +74,6 @@ class DiceCELossSplitter(monai.losses.DiceCELoss):
 
         return dice_loss, ce_loss, total_loss
     
-
-
-class GeneralizedDiceCELoss(monai.losses.GeneralizedDiceLoss):
-
-    def __init__(self, lambda_ce=1.0, lambda_dice=1.0, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.lambda_ce = lambda_ce
-        self.lambda_dice = lambda_dice
-
-    def forward(self, input: torch.Tensor, target: torch.Tensor):
-        """
-        Args:
-            input: the shape should be BNH[WD].
-            target: the shape should be BNH[WD] or B1H[WD].
-
-        Raises:
-            ValueError: When number of dimensions for input and target are different.
-            ValueError: When number of channels for target is neither 1 nor the same as input.
-
-        """
-        if len(input.shape) != len(target.shape):
-            raise ValueError(
-                "the number of dimensions for input and target should be the same, "
-                f"got shape {input.shape} and {target.shape}."
-            )
-
-        dice_loss = self(input, target)
-        ce_loss = self.ce(input, target) if input.shape[1] != 1 else self.bce(input, target)
-
-        total_loss: torch.Tensor = self.lambda_dice * dice_loss + self.lambda_ce * ce_loss
-
-        return dice_loss, ce_loss, total_loss
-
-
-
-
-
 
 # other utility functions
 

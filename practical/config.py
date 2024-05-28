@@ -35,12 +35,16 @@ class Config():
         self.default_root_dir = Path(Path.cwd())
         self.model_path = Path(Path.cwd() / 'models')
         self.validation_img_path = Path(Path.cwd() / 'val_predictions')
+        self.results_path = Path(Path.cwd() / 'results')
 
         if not os.path.isdir(self.model_path):
             os.mkdir(Path(Path.cwd() / 'models'))
 
         if not os.path.isdir(self.validation_img_path):
             os.mkdir(Path(Path.cwd() / 'val_predictions'))
+
+        if not os.path.isdir(self.results_path):
+            os.mkdir(Path(Path.cwd() / 'results'))
 
 
         self.source_domains = source_domains
@@ -56,8 +60,8 @@ class Config():
             ToTensord(keys=['img', 'label', 'masks']),
             #Lambdad(keys=['img', 'label', 'masks'], func = lambda x: 2*(x - x.min()) / (x.max() - x.min()) - 1 ),  # -1 to 1 scaling
             NormalizeToZeroOne(keys=['img', 'label', 'masks']),
-            Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[496, 1024]),
-            SpatialPadd(keys=['img', 'label', 'masks'], spatial_size=[512, 1024], mode='constant'),
+            Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[512, 1024]),
+            #SpatialPadd(keys=['img', 'label', 'masks'], spatial_size=[512, 1024], mode='constant'),
             RandZoomd(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], prob=0.3, min_zoom=0.5, max_zoom=1.5),
             RandAxisFlipd(keys=["img", "label", 'masks'], prob=0.3),
             RandAffined(keys=["img", "label", 'masks'], 
@@ -77,8 +81,8 @@ class Config():
             ExpandChannelDim(keys=['img', 'label']),
             ToTensord(keys=['img', 'label', 'masks']),
             NormalizeToZeroOne(keys=['img', 'label', 'masks']),
-            Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[496, 1024]),
-            SpatialPadd(keys=['img', 'label', 'masks'], spatial_size=[512, 1024], mode='constant'),
+            Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[512, 1024]),
+            #SpatialPadd(keys=['img', 'label', 'masks'], spatial_size=[512, 1024], mode='constant'),
             
         ])
         
@@ -89,8 +93,8 @@ class Config():
             ExpandChannelDim(keys=['img', 'label']),
             ToTensord(keys=['img', 'label', 'masks']),
             NormalizeToZeroOne(keys=['img', 'label', 'masks']),
-            Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[496, 1024]),
-            SpatialPadd(keys=['img', 'label', 'masks'], spatial_size=[512, 1024], mode='constant'),
+            Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[512, 1024]),
+            #SpatialPadd(keys=['img', 'label', 'masks'], spatial_size=[512, 1024], mode='constant'),
         ])
 
         # leftover transforms I keep for later
@@ -119,7 +123,7 @@ class Config():
         self.model_parameters_unet = {
             'spatial_dims': 2,
             'in_channels': 1,
-            'out_channels': 3,
+            'out_channels': 4,
             'channels': (16, 32, 64, 128, 256),
             'strides': (2, 2, 2, 2),
             'num_res_units': 2,
