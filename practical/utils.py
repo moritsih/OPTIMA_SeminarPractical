@@ -9,7 +9,7 @@ from transforms import *
 
 import monai
 import pandas as pd
-import tabulate
+from tabulate import tabulate
 
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -40,7 +40,7 @@ class AggregateTestingResultsCallback(Callback):
         print(tabulate(grouped_results, headers="keys", tablefmt="pretty"))
 
         try:
-            self.results.to_csv(f"{pl_module.cfg.results_path}results_{pl_module.experiment_name}.csv")
+            self.results.to_csv(f"{pl_module.cfg.results_path}/results_{pl_module.experiment_name}.csv")
         except:
             self.results.to_csv(f"results_{pl_module.experiment_name}.csv")
 
