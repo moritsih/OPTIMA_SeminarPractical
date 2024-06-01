@@ -21,36 +21,44 @@ np.random.seed(99)
 torch.manual_seed(99)
 
 
+class SaveInitialModelCallback(L.Callback):
+    def on_train_start(self, trainer, pl_module):
+        trainer.save_checkpoint(os.path.join(trainer.default_root_dir, "models", "initial_model.ckpt"))
+
+
+
 class AggregateTestingResultsCallback(Callback):
     def on_test_end(self, trainer, pl_module):
 
         self.results = pd.DataFrame.from_dict(pl_module.results)
         
-        # group by condition and calculate mean and std in separate columns
-        grouped_results = self.results.groupby(["Task"]).agg({
+        # group by condition and calculate mean
+        grouped_means = self.results.groupby(["Task"]).agg({
             "Model": "first",
-            "Accuracy": ["mean", "std"],
-            "F1": ["mean", "std"],
-            "Precision": ["mean", "std"],
-            "Recall": ["mean", "std"],
-            "Specificity": ["mean", "std"]
+            "Accuracy": "mean",
+            "F1": "mean",
+            "Precision": "mean",
+            "Recall": "mean",
+            "Specificity": "mean"
         })
 
-        # Combine mean and std into single columns
-        for col in ["Accuracy", "F1", "Precision", "Recall", "Specificity"]:
-            grouped_results[col] = grouped_results[col, 'mean'].round(3).astype(str) + " (" + grouped_results[col, 'std'].round(3).astype(str) + ")"
-
-        # Remove multi-index in columns
-        grouped_results.columns = grouped_results.columns.get_level_values(0)
-        grouped_results = grouped_results.loc[:,~grouped_results.columns.duplicated()]
+        # group by condition and calculate std
+        grouped_std = self.results.groupby(["Task"]).agg({
+            "Model": "first",
+            "Accuracy": "std",
+            "F1": "std",
+            "Precision": "std",
+            "Recall": "std",
+            "Specificity": "std"
+        })
 
         # print the results
-        print(tabulate(grouped_results, headers="keys", tablefmt="pretty"))
+        print(tabulate(grouped_means, headers="keys", tablefmt="pretty"))
 
-        try:
-            grouped_results.to_csv(f"{pl_module.cfg.results_path}/results_{pl_module.experiment_name}.csv")
-        except:
-            grouped_results.to_csv(f"results_{pl_module.experiment_name}.csv")
+        self.results.to_csv(f"{pl_module.cfg.results_path}/results_raw_{pl_module.experiment_name}.csv")
+        grouped_means.to_csv(f"{pl_module.cfg.results_path}/results_{pl_module.experiment_name}.csv")
+        grouped_std.to_csv(f"{pl_module.cfg.results_path}/results_std_{pl_module.experiment_name}.csv")
+
 
 
 '''
