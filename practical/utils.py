@@ -55,9 +55,14 @@ class AggregateTestingResultsCallback(Callback):
         # print the results
         print(tabulate(grouped_means, headers="keys", tablefmt="pretty"))
 
-        self.results.to_csv(f"{pl_module.cfg.results_path}/results_raw_{pl_module.experiment_name}.csv")
-        grouped_means.to_csv(f"{pl_module.cfg.results_path}/results_{pl_module.experiment_name}.csv")
-        grouped_std.to_csv(f"{pl_module.cfg.results_path}/results_std_{pl_module.experiment_name}.csv")
+        if not os.path.exists(f"{Path.cwd()}/results/{pl_module.experiment_name}"):
+            os.makedirs(f"{Path.cwd()}/results/{pl_module.experiment_name}")
+        
+        save_path = f"{Path.cwd()}/results/{pl_module.experiment_name}"
+
+        self.results.to_csv(f"{save_path}/results_raw_{pl_module.experiment_name}.csv")
+        grouped_means.to_csv(f"{save_path}/results_mean_{pl_module.experiment_name}.csv")
+        grouped_std.to_csv(f"{save_path}/results_std_{pl_module.experiment_name}.csv")
 
 
 
