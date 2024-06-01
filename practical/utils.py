@@ -27,15 +27,23 @@ class AggregateTestingResultsCallback(Callback):
         self.results = pd.DataFrame.from_dict(pl_module.results)
         
         # group by condition and calculate mean and std in separate columns
-        grouped_results = self.results.groupby(["Condition"]).agg({
+        grouped_results = self.results.groupby(["Task"]).agg({
+            "Model": "first",
             "Accuracy": ["mean", "std"],
             "F1": ["mean", "std"],
             "Precision": ["mean", "std"],
             "Recall": ["mean", "std"],
-            "Specificity": ["mean", "std"],
-            "Model": "first"
+            "Specificity": ["mean", "std"]
         })
-        
+
+        # Combine mean and std into single columns
+        for col in ["Accuracy", "F1", "Precision", "Recall", "Specificity"]:
+            grouped_results[col] = grouped_results[col, 'mean'].round(3).astype(str) + " (" + grouped_results[col, 'std'].round(3).astype(str) + ")"
+
+        # Remove multi-index in columns
+        grouped_results.columns = grouped_results.columns.get_level_values(0)
+        grouped_results = grouped_results.loc[:,~grouped_results.columns.duplicated()]
+
         # print the results
         print(tabulate(grouped_results, headers="keys", tablefmt="pretty"))
 
