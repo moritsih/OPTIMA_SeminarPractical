@@ -21,7 +21,7 @@ np.random.seed(99)
 torch.manual_seed(99)
 
 
-class SaveInitialModelCallback(L.Callback):
+class SaveInitialModelCallback(Callback):
     def on_train_start(self, trainer, pl_module):
         trainer.save_checkpoint(os.path.join(trainer.default_root_dir, "models", "initial_model.ckpt"))
 
