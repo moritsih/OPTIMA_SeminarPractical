@@ -27,7 +27,7 @@ class AggregateTestingResultsCallback(Callback):
         self.results = pd.DataFrame.from_dict(pl_module.results)
         
         # group by condition and calculate mean and std in separate columns
-        grouped_results = self.results.groupby(["Model", "Condition"]).agg({
+        grouped_results = self.results.groupby(["Condition"]).agg({
             "Accuracy": ["mean", "std"],
             "F1": ["mean", "std"],
             "Precision": ["mean", "std"],
@@ -40,9 +40,9 @@ class AggregateTestingResultsCallback(Callback):
         print(tabulate(grouped_results, headers="keys", tablefmt="pretty"))
 
         try:
-            self.results.to_csv(f"{pl_module.cfg.results_path}/results_{pl_module.experiment_name}.csv")
+            grouped_results.to_csv(f"{pl_module.cfg.results_path}/results_{pl_module.experiment_name}.csv")
         except:
-            self.results.to_csv(f"results_{pl_module.experiment_name}.csv")
+            grouped_results.to_csv(f"results_{pl_module.experiment_name}.csv")
 
 
 '''
