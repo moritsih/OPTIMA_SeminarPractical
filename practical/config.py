@@ -52,9 +52,9 @@ class Config():
 
         # transforms
         self.train_transforms = Compose([
-            CustomImageLoader(keys=['img', 'label']), # if SVDNA should not be performed, uncomment this and comment the following two lines
-            #SVDNA(keys=['img'], histogram_matching_degree=.5, source_domains=self.source_domains),
-            #CustomImageLoader(keys=['label']),
+            #CustomImageLoader(keys=['img', 'label']), # if SVDNA should not be performed, uncomment this and comment the following two lines
+            SVDNA(keys=['img'], histogram_matching_degree=0.5, source_domains=self.source_domains),
+            CustomImageLoader(keys=['label']),
             ConvertLabelMaskToChannel(keys=['label'], target_keys=["masks"]),
             ExpandChannelDim(keys=['img', 'label']),
             ToTensord(keys=['img', 'label', 'masks']),

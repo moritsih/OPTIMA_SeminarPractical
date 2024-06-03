@@ -370,36 +370,37 @@ class SVDNA(MapTransform, Randomizable):
         resized_src=np.asarray(Image.fromarray(source_img).resize((h, w), Image.NEAREST))
 
         #print("A")
-        u_target, s_target, vh_target = np.linalg.svd(resized_target, full_matrices=False)
+        #u_target, s_target, vh_target = np.linalg.svd(resized_target, full_matrices=False)
         #print("target done")
-        u_source, s_source, vh_source = np.linalg.svd(resized_src, full_matrices=False)
+        #u_source, s_source, vh_source = np.linalg.svd(resized_src, full_matrices=False)
         #print("source done")
-        thresholded_singular_target = s_target
-        thresholded_singular_target[0:k] = 0
+        #thresholded_singular_target = s_target
+        #thresholded_singular_target[0:k] = 0
         #print("B")
-        thresholded_singular_source = s_source
-        thresholded_singular_source[k:] = 0
+        #thresholded_singular_source = s_source
+        #thresholded_singular_source[k:] = 0
 
         # i thought the k last singular values of target would be transferred to the source. However, here
         # they just take them out, put the matrices back together and only THEN perform the subtraction
 
-        target_style = np.array(np.dot(u_target, np.dot(np.diag(thresholded_singular_target), vh_target)))
-        content_src = np.array(np.dot(u_source, np.dot(np.diag(thresholded_singular_source), vh_source)))
+        #target_style = np.array(np.dot(u_target, np.dot(np.diag(thresholded_singular_target), vh_target)))
+        #content_src = np.array(np.dot(u_source, np.dot(np.diag(thresholded_singular_source), vh_source)))
 
-        content_trgt = target_img - target_style
+        #content_trgt = target_img - target_style
 
-        noise_adapted_im = content_src + target_style
+        #noise_adapted_im = content_src + target_style
 
-        noise_adapted_im_clipped = noise_adapted_im.clip(0, 255).astype(np.uint8)
+        #noise_adapted_im_clipped = noise_adapted_im.clip(0, 255).astype(np.uint8)
         #print("C")
         transformHist = A.Compose([
         A.HistogramMatching([resized_target], blend_ratio=(histo_matching_degree, histo_matching_degree), read_fn=self.readIm, p=1)
         ])
         #print("D")
-        transformed = transformHist(image=noise_adapted_im_clipped)
+        #transformed = transformHist(image=noise_adapted_im_clipped)
+        transformed = transformHist(image=resized_src)
         svdna_im = transformed["image"]
-
-        return source_img, target_img, content_src, np.squeeze(target_style), svdna_im, noise_adapted_im_clipped
+        return None, None, None, None, svdna_im, None
+        #return source_img, target_img, content_src, np.squeeze(target_style), svdna_im, noise_adapted_im_clipped
         
 
 class Debugging(MapTransform):
