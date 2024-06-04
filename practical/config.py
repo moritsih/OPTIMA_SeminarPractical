@@ -3,18 +3,16 @@ import numpy as np
 from pathlib import Path
 from typing import *
 
-from tqdm.notebook import tqdm
-
 import torch
 
 from monai.transforms import *
 from monai.config.type_definitions import KeysCollection
 
-import wandb
-
 # Imports from local files
 from transforms import *
 from utils import *
+
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 
 
 # Set random seed
@@ -48,6 +46,7 @@ class Config():
 
 
         self.source_domains = source_domains
+
 
 
         # transforms
@@ -94,7 +93,8 @@ class Config():
             Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[512, 1024]),
         ])
 
-        # leftover transforms I keep for later
+
+        # leftover transforms that could be used
         '''
             #GetMaskPositions(keys=['masks'], target_keys=["mask_positions"]), #We get the layer position, but on the original height
             #LayerPositionToProbabilityMap(["mask_positions"], target_size=(400,400), target_keys=["mask_probability_map"]),
@@ -114,22 +114,7 @@ class Config():
             self.device = 'cpu'
 
 
-        # models
-
-        # unet
-        self.model_parameters_unet = {
-            'spatial_dims': 2,
-            'in_channels': 1,
-            'out_channels': 4,
-            'channels': (16, 32, 64, 128, 256),
-            'strides': (2, 2, 2, 2),
-            'num_res_units': 2,
-            'bias': False,
-            'dropout':0.1
-        }
-
-
-        # unet++
+        # model unet++
         self.model_parameters_unetpp = {
             'encoder_name': 'resnet18',
             'encoder_weights': 'imagenet',
@@ -138,6 +123,25 @@ class Config():
             'classes': 4,
             'decoder_attention_type': 'scse'
         }
+
+        self.experiment_name = None
+
+
+        self.checkpoint_callback = ModelCheckpoint(dirpath=self.model_path / self.experiment_name, 
+                                                            monitor='val_loss_total', 
+                                                            mode='min',
+                                                            filename='{self.experiment_name}-{epoch:02d}-{val_loss_total:.3f}-{val_precision:.3f}',
+                                                            every_n_epochs=5,
+                                                            save_top_k=2,
+                                                            verbose=True)
+
+
+        # Callbacks
+        self.early_stopping = EarlyStopping(monitor='val_loss_total', mode='min', patience=20)
+
+        self.lr_monitor = LearningRateMonitor(logging_interval='step')
+
+        self.aggregate_testing_results = AggregateTestingResultsCallback()
 
 
         # optimizer
@@ -148,10 +152,6 @@ class Config():
         # lr scheduler
         self.factor = 0.3
         self.patience_lr = 5
-
-
-        # callbacks
-        self.early_stopping_patience = 30
 
 
         # hyperparams

@@ -21,6 +21,7 @@ np.random.seed(99)
 torch.manual_seed(99)
 
 
+
 class SaveInitialModelCallback(Callback):
     def on_train_start(self, trainer, pl_module):
         trainer.save_checkpoint(os.path.join(trainer.default_root_dir, "models", "initial_model.ckpt"))
@@ -64,36 +65,6 @@ class AggregateTestingResultsCallback(Callback):
         grouped_means.to_csv(f"{save_path}/results_mean_{pl_module.experiment_name}.csv")
         grouped_std.to_csv(f"{save_path}/results_std_{pl_module.experiment_name}.csv")
 
-
-
-'''
-Rewrite the loss function used so I can log the two losses separately
-'''
-
-class DiceCELossSplitter(monai.losses.DiceCELoss):
-
-    def forward(self, input: torch.Tensor, target: torch.Tensor):
-        """
-        Args:
-            input: the shape should be BNH[WD].
-            target: the shape should be BNH[WD] or B1H[WD].
-
-        Raises:
-            ValueError: When number of dimensions for input and target are different.
-            ValueError: When number of channels for target is neither 1 nor the same as input.
-
-        """
-        if len(input.shape) != len(target.shape):
-            raise ValueError(
-                "the number of dimensions for input and target should be the same, "
-                f"got shape {input.shape} and {target.shape}."
-            )
-
-        dice_loss = self.dice(input, target)
-        ce_loss = self.ce(input, target) if input.shape[1] != 1 else self.bce(input, target)
-        total_loss: torch.Tensor = self.lambda_dice * dice_loss + self.lambda_ce * ce_loss
-
-        return dice_loss, ce_loss, total_loss
     
 
 # other utility functions
@@ -131,6 +102,7 @@ def map_grayscale_to_channels_four_channel(image):
         return mapped_image
     
     return mapped_image[:, :, 1:4]
+
 
 
 def plot_img_label_pred(img, pred, mask):

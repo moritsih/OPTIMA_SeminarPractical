@@ -8,7 +8,6 @@ from torch.utils.data import Dataset
 from torch.utils.data.dataset import random_split
 import numpy as np
 import cv2
-from tqdm import tqdm
 
 np.random.seed(99)
 torch.manual_seed(99)
