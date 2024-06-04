@@ -6,7 +6,7 @@ import torch
 import lightning as L
 from lightning.pytorch import seed_everything
 import torchmetrics as tm
-from pytorch_lightning.callbacks import Callback
+from lightning.pytorch.callbacks import Callback
 
 import monai
 import os
@@ -136,7 +136,6 @@ class LitUNetPlusPlus(L.LightningModule):
             outputs_channel = outputs[:, channel, :, :]
             masks_channel = masks[:, channel, :, :]
 
-            dice_score = 1 - self.loss_func1(outputs_channel, masks_channel)
             accuracy = self.test_accuracy(outputs_channel, masks_channel)
             f1 = self.test_f1(outputs_channel, masks_channel)
             precision = self.test_precision(outputs_channel, masks_channel)
@@ -145,7 +144,6 @@ class LitUNetPlusPlus(L.LightningModule):
 
             self.results["Model"].append(self.experiment_name)
             self.results["Task"].append(self.tasks[channel])
-            self.results["Dice"].append(dice_score.item())
             self.results["Accuracy"].append(accuracy.item())
             self.results["F1"].append(f1.item())
             self.results["Precision"].append(precision.item())
@@ -168,7 +166,7 @@ class LitUNetPlusPlus(L.LightningModule):
 
 class SaveInitialModelCallback(Callback):
     def on_train_start(self, trainer, pl_module):
-        trainer.save_checkpoint(os.path.join(trainer.default_root_dir, "models", "initial_model.ckpt"))
+        trainer.save_checkpoint(os.path.join(trainer.default_root_dir, "models", pl_module.experiment_name, "initial_model.ckpt"))
 
 
 
@@ -176,10 +174,10 @@ class AggregateTestingResultsCallback(Callback):
     def on_test_end(self, trainer, pl_module):
 
 
-        if not os.path.exists(f"{Path.cwd()}/results/{pl_module.experiment_name}"):
-            os.makedirs(f"{Path.cwd()}/results/{pl_module.experiment_name}")
+        if not os.path.exists(f"{trainer.default_root_dir}/results/{pl_module.experiment_name}"):
+            os.makedirs(f"{trainer.default_root_dir}/results/{pl_module.experiment_name}")
         
-        save_path = f"{Path.cwd()}/results/{pl_module.experiment_name}"
+        save_path = f"{trainer.default_root_dir}/results/{pl_module.experiment_name}"
 
 
 
