@@ -126,7 +126,7 @@ class Config():
             'decoder_attention_type': 'scse'
         }
 
-        self.experiment_name = None
+        self.experiment_name = ""
 
 
         self.checkpoint_callback = ModelCheckpoint(dirpath=self.model_path / self.experiment_name, 
