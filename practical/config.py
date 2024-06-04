@@ -11,6 +11,7 @@ from monai.config.type_definitions import KeysCollection
 # Imports from local files
 from transforms import *
 from utils import *
+from lightning_module import AggregateTestingResultsCallback, SaveInitialModelCallback
 
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 
@@ -22,7 +23,7 @@ torch.manual_seed(99)
 
 class Config():
 
-    def __init__(self, source_domains: List[str] = ['Spectralis', 'Topcon', 'Cirrus']):
+    def __init__(self):
 
         # directory where img folders are still sorted by domain (but unprocessed OCT images)
         self.name_dir = Path(Path.cwd() / 'data/RETOUCH/TrainingSet-Release/') 
@@ -45,8 +46,9 @@ class Config():
             os.mkdir(Path(Path.cwd() / 'results'))
 
 
-        self.source_domains = source_domains
 
+        # NECESSARY TO SPECIFY since this decides what the "training set" is
+        self.source_domains = ['Spectralis', 'Topcon', 'Cirrus']
 
 
         # transforms
@@ -132,7 +134,7 @@ class Config():
                                                             mode='min',
                                                             filename='{self.experiment_name}-{epoch:02d}-{val_loss_total:.3f}-{val_precision:.3f}',
                                                             every_n_epochs=5,
-                                                            save_top_k=2,
+                                                            save_top_k=1,
                                                             verbose=True)
 
 
@@ -142,6 +144,8 @@ class Config():
         self.lr_monitor = LearningRateMonitor(logging_interval='step')
 
         self.aggregate_testing_results = AggregateTestingResultsCallback()
+
+        self.save_initial_model = SaveInitialModelCallback()
 
 
         # optimizer

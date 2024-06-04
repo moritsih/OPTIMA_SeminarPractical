@@ -6,10 +6,14 @@ import torch
 import lightning as L
 from lightning.pytorch import seed_everything
 import torchmetrics as tm
+from pytorch_lightning.callbacks import Callback
 
 import monai
 import os
 import cv2
+from pathlib import Path
+import pandas as pd
+from tabulate import tabulate
 
 from lightning.pytorch.plugins.environments import SLURMEnvironment
 SLURMEnvironment.detect = lambda: False
@@ -86,17 +90,17 @@ class LitUNetPlusPlus(L.LightningModule):
         outputs_nobg = outputs[:, 1:, :, :]
         masks_nobg = masks[:, 1:, :, :]
 
-        output_to_save = torch.sigmoid(outputs_nobg[:5])
+        #output_to_save = torch.sigmoid(outputs_nobg[:5])
 
         # thresholding
-        output_to_save[output_to_save > 0.5] = 1
-        output_to_save[output_to_save <= 0.5] = 0
+        #output_to_save[output_to_save > 0.5] = 1
+        #output_to_save[output_to_save <= 0.5] = 0
 
-        for i in range(output_to_save.shape[0]):
-            img_path = os.path.join(cfg.validation_img_path, f"epoch{self.current_epoch}")
-            if not os.path.isdir(img_path): os.mkdir(img_path)
-            img = os.path.join(img_path, f"b{batch_idx}img{i+1}.png")
-            cv2.imwrite(img, output_to_save[i].permute(1, 2, 0).cpu().numpy() * 255)
+        #for i in range(output_to_save.shape[0]):
+        #    img_path = os.path.join(self.cfg.validation_img_path, f"epoch{self.current_epoch}")
+        #    if not os.path.isdir(img_path): os.mkdir(img_path)
+        #    img = os.path.join(img_path, f"b{batch_idx}img{i+1}.png")
+        #    cv2.imwrite(img, output_to_save[i].permute(1, 2, 0).cpu().numpy() * 255)
 
         self.log('val_loss_total', total_loss)
         self.log('val_loss_dice', dice)
@@ -132,6 +136,7 @@ class LitUNetPlusPlus(L.LightningModule):
             outputs_channel = outputs[:, channel, :, :]
             masks_channel = masks[:, channel, :, :]
 
+            dice_score = 1 - self.loss_func1(outputs_channel, masks_channel)
             accuracy = self.test_accuracy(outputs_channel, masks_channel)
             f1 = self.test_f1(outputs_channel, masks_channel)
             precision = self.test_precision(outputs_channel, masks_channel)
@@ -140,6 +145,7 @@ class LitUNetPlusPlus(L.LightningModule):
 
             self.results["Model"].append(self.experiment_name)
             self.results["Task"].append(self.tasks[channel])
+            self.results["Dice"].append(dice_score.item())
             self.results["Accuracy"].append(accuracy.item())
             self.results["F1"].append(f1.item())
             self.results["Precision"].append(precision.item())
@@ -156,3 +162,42 @@ class LitUNetPlusPlus(L.LightningModule):
     
     def forward(self, x):
         return self.model(x)
+    
+
+
+
+class SaveInitialModelCallback(Callback):
+    def on_train_start(self, trainer, pl_module):
+        trainer.save_checkpoint(os.path.join(trainer.default_root_dir, "models", "initial_model.ckpt"))
+
+
+
+class AggregateTestingResultsCallback(Callback):
+    def on_test_end(self, trainer, pl_module):
+
+
+        if not os.path.exists(f"{Path.cwd()}/results/{pl_module.experiment_name}"):
+            os.makedirs(f"{Path.cwd()}/results/{pl_module.experiment_name}")
+        
+        save_path = f"{Path.cwd()}/results/{pl_module.experiment_name}"
+
+
+
+        self.results = pd.DataFrame.from_dict(pl_module.results)
+        
+        # group by condition and calculate mean
+        grouped_means = self.results.groupby(["Task"]).agg({
+            "Model": "first",
+            "Dice": "mean",
+            "Accuracy": "mean",
+            "F1": "mean",
+            "Precision": "mean",
+            "Recall": "mean",
+            "Specificity": "mean"
+        })
+
+        # print the results
+        print(tabulate(grouped_means, headers="keys", tablefmt="pretty"))
+
+
+        self.results.to_csv(f"{save_path}/results_{pl_module.experiment_name}.csv")
