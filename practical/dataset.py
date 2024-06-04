@@ -82,6 +82,8 @@ class OCTDatasetPrep(Dataset):
         domains_dict = {}
 
         for domain in domains:
+
+            # gonna rewrite
             
             list_of_dicts_images = []
             
