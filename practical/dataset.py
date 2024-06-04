@@ -72,49 +72,47 @@ class OCTDatasetPrep(Dataset):
         source_domains: The source domain for the upcoming SVDNA process.
         '''
 
-        # creates dict e.g. {'cirrus':['path1', 'path2', ...], 'topcon':['path1', 'path2', ...]}
-        img_folders_sorted_by_domain = {domain:os.listdir(named_domain_folder / domain) for domain in domains}
+        # Create a dictionary mapping each domain to its corresponding image folders
+        domain_to_folders = {domain: os.listdir(named_domain_folder / domain) for domain in domains}
 
-        # restructure source data into a list of dictionaries, where each dictionary has keys img and label
+        # Get a list of all image folders in the training set
+        all_folders = os.listdir(data_path)
+        if '.DS_Store' in all_folders:
+            all_folders.remove('.DS_Store')
 
-        unsorted_img_folders_training_set = os.listdir(data_path)
+        # Initialize a dictionary to hold the final result
+        result = {}
 
-        domains_dict = {}
+        # Only iterate over the source domains
+        for domain in source_domains:
+            # Initialize a list to hold the images for this domain
+            images = []
 
-        for domain in domains:
+            # Iterate over the folders that belong to this domain
+            for folder in domain_to_folders[domain]:
+                # If the folder is in the training set, process it
+                if folder in all_folders:
+                    all_folders.remove(folder)
 
-            # gonna rewrite
-            
-            list_of_dicts_images = []
-            
-            for img_folder in unsorted_img_folders_training_set:
-
-                if img_folder in img_folders_sorted_by_domain[domain]:
-                    
-                    subfolders = os.listdir(data_path / img_folder)
-                    unsorted_img_folders_training_set.remove(img_folder)
-
+                    # Check if the folder contains both 'image' and 'label_image' subfolders
+                    subfolders = os.listdir(data_path / folder)
                     if 'image' in subfolders and 'label_image' in subfolders:
-                        
-                        if domain in source_domains:
+                        # Get the image and label files
+                        image_files = sorted([x for x in os.listdir(data_path / folder / 'image') if ".png" in x])
+                        label_files = sorted([x for x in os.listdir(data_path / folder / 'label_image') if ".png" in x])
 
-                            sliced_images = sorted([x for x in os.listdir(data_path / img_folder / 'image') if ".png" in x])
-                            sliced_labels = sorted([x for x in os.listdir(data_path / img_folder / 'label_image') if ".png" in x])
-                            
-                            for i in range(len(sliced_images)):
-                                
-                                #if (sliced_images[i] == sliced_labels[i]):# or (sliced_images[i][:-4] + '_empty.png' == sliced_labels[i]):
-                                if sliced_images[i] in sliced_labels:
-                                    list_of_dicts_images.append(
-                                        {'img': str(data_path / img_folder / 'image' / sliced_images[i]), 'label': str(data_path / img_folder / 'label_image' / sliced_images[i])}
-                                        )
+                        # Only include images that have a corresponding label
+                        for image_file in image_files:
+                            if image_file in label_files:
+                                images.append({
+                                    'img': str(data_path / folder / 'image' / image_file),
+                                    'label': str(data_path / folder / 'label_image' / image_file)
+                                })
 
-                                else:
-                                    continue
-                        
-            domains_dict[domain] = list_of_dicts_images
-                                        
-        return domains_dict, len(domains)
+            # Add the images for this domain to the result
+            result[domain] = images
+
+        return result, len(source_domains)
 
 
     def generate_black_images(self, delete_images=False):
