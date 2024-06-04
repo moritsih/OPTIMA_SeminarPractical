@@ -31,6 +31,8 @@ class LitUNetPlusPlus(L.LightningModule):
         self.loss_func1 = monai.losses.GeneralizedDiceLoss(include_background=False, sigmoid=True)
         self.loss_func2 = torch.nn.BCEWithLogitsLoss()
 
+        # self.loss_func = monai.losses.GeneralizedDiceFocalLoss(include_background=False, sigmoid=True)
+
         # several metrics
         avg = 'weighted' # weighted: calculates statistics for each label and computes weighted average using their support
         num_classes = 2
@@ -153,6 +155,7 @@ class LitUNetPlusPlus(L.LightningModule):
         return total_loss
 
     def configure_optimizers(self):
+        #optimizer = optim.AdamW(self.model.parameters(), lr=self.cfg.lr, weight_decay=self.cfg.weight_decay)
         optimizer = optim.Adam(self.model.parameters(), lr=self.cfg.lr, weight_decay=self.cfg.weight_decay)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=self.cfg.factor, patience=self.cfg.patience_lr)
         return {"optimizer": optimizer, 
