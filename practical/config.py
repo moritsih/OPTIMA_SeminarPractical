@@ -3,18 +3,17 @@ import numpy as np
 from pathlib import Path
 from typing import *
 
-from tqdm.notebook import tqdm
-
 import torch
 
 from monai.transforms import *
 from monai.config.type_definitions import KeysCollection
 
-import wandb
-
 # Imports from local files
 from transforms import *
 from utils import *
+from lightning_module import AggregateTestingResultsCallback, SaveInitialModelCallback
+
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 
 
 # Set random seed
@@ -24,7 +23,7 @@ torch.manual_seed(99)
 
 class Config():
 
-    def __init__(self, source_domains: List[str] = ['Spectralis', 'Topcon', 'Cirrus']):
+    def __init__(self):
 
         # directory where img folders are still sorted by domain (but unprocessed OCT images)
         self.name_dir = Path(Path.cwd() / 'data/RETOUCH/TrainingSet-Release/') 
@@ -35,6 +34,7 @@ class Config():
         self.default_root_dir = Path(Path.cwd())
         self.model_path = Path(Path.cwd() / 'models')
         self.validation_img_path = Path(Path.cwd() / 'val_predictions')
+        self.results_path = Path(Path.cwd() / 'results')
 
         if not os.path.isdir(self.model_path):
             os.mkdir(Path(Path.cwd() / 'models'))
@@ -42,29 +42,33 @@ class Config():
         if not os.path.isdir(self.validation_img_path):
             os.mkdir(Path(Path.cwd() / 'val_predictions'))
 
+        if not os.path.isdir(self.results_path):
+            os.mkdir(Path(Path.cwd() / 'results'))
 
-        self.source_domains = source_domains
+
+
+        # NECESSARY TO SPECIFY since this decides what the "training set" is
+        self.source_domains = ['Spectralis', 'Topcon', 'Cirrus']
 
 
         # transforms
         self.train_transforms = Compose([
             #CustomImageLoader(keys=['img', 'label']), # if SVDNA should not be performed, uncomment this and comment the following two lines
-            SVDNA(keys=['img'], histogram_matching_degree=.5, source_domains=self.source_domains),
+            SVDNA(keys=['img'], histogram_matching_degree=0.5, source_domains=self.source_domains),
             CustomImageLoader(keys=['label']),
             ConvertLabelMaskToChannel(keys=['label'], target_keys=["masks"]),
             ExpandChannelDim(keys=['img', 'label']),
             ToTensord(keys=['img', 'label', 'masks']),
             #Lambdad(keys=['img', 'label', 'masks'], func = lambda x: 2*(x - x.min()) / (x.max() - x.min()) - 1 ),  # -1 to 1 scaling
             NormalizeToZeroOne(keys=['img', 'label', 'masks']),
-            Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[496, 1024]),
-            SpatialPadd(keys=['img', 'label', 'masks'], spatial_size=[512, 1024], mode='constant'),
-            RandZoomd(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], prob=0.3, min_zoom=0.5, max_zoom=1.5),
+            Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[512, 1024]),
+            RandZoomd(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], prob=0.3, min_zoom=1, max_zoom=1.5),
             RandAxisFlipd(keys=["img", "label", 'masks'], prob=0.3),
             RandAffined(keys=["img", "label", 'masks'], 
                         prob=0.3, 
-                        shear_range=[0, 0],
-                        translate_range=[0, 0],
-                        rotate_range=[0, 0],
+                        shear_range=[(-0.2, 0.2), (0.0, 0.0)], 
+                        translate_range=[(-100, 100), (0, 0)],
+                        rotate_range=[-15, 15],
                         mode=["bilinear", "nearest", "nearest"], 
                         padding_mode="zeros"),      
             #Debugging(keys=['img', 'label', 'masks']),
@@ -77,8 +81,7 @@ class Config():
             ExpandChannelDim(keys=['img', 'label']),
             ToTensord(keys=['img', 'label', 'masks']),
             NormalizeToZeroOne(keys=['img', 'label', 'masks']),
-            Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[496, 1024]),
-            SpatialPadd(keys=['img', 'label', 'masks'], spatial_size=[512, 1024], mode='constant'),
+            Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[512, 1024]),
             
         ])
         
@@ -89,11 +92,11 @@ class Config():
             ExpandChannelDim(keys=['img', 'label']),
             ToTensord(keys=['img', 'label', 'masks']),
             NormalizeToZeroOne(keys=['img', 'label', 'masks']),
-            Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[496, 1024]),
-            SpatialPadd(keys=['img', 'label', 'masks'], spatial_size=[512, 1024], mode='constant'),
+            Resized(keys=["img", "label", 'masks'], mode=["area", "nearest-exact", "nearest-exact"], spatial_size=[512, 1024]),
         ])
 
-        # leftover transforms I keep for later
+
+        # leftover transforms that could be used
         '''
             #GetMaskPositions(keys=['masks'], target_keys=["mask_positions"]), #We get the layer position, but on the original height
             #LayerPositionToProbabilityMap(["mask_positions"], target_size=(400,400), target_keys=["mask_probability_map"]),
@@ -113,22 +116,7 @@ class Config():
             self.device = 'cpu'
 
 
-        # models
-
-        # unet
-        self.model_parameters_unet = {
-            'spatial_dims': 2,
-            'in_channels': 1,
-            'out_channels': 3,
-            'channels': (16, 32, 64, 128, 256),
-            'strides': (2, 2, 2, 2),
-            'num_res_units': 2,
-            'bias': False,
-            'dropout':0.1
-        }
-
-
-        # unet++
+        # model unet++
         self.model_parameters_unetpp = {
             'encoder_name': 'resnet18',
             'encoder_weights': 'imagenet',
@@ -137,6 +125,27 @@ class Config():
             'classes': 4,
             'decoder_attention_type': 'scse'
         }
+
+        self.experiment_name = None
+
+
+        self.checkpoint_callback = ModelCheckpoint(dirpath=self.model_path / self.experiment_name, 
+                                                            monitor='val_loss_total', 
+                                                            mode='min',
+                                                            filename='{self.experiment_name}-{epoch:02d}-{val_loss_total:.3f}-{val_precision:.3f}',
+                                                            every_n_epochs=5,
+                                                            save_top_k=1,
+                                                            verbose=True)
+
+
+        # Callbacks
+        self.early_stopping = EarlyStopping(monitor='val_loss_total', mode='min', patience=20)
+
+        self.lr_monitor = LearningRateMonitor(logging_interval='step')
+
+        self.aggregate_testing_results = AggregateTestingResultsCallback()
+
+        self.save_initial_model = SaveInitialModelCallback()
 
 
         # optimizer
@@ -147,10 +156,6 @@ class Config():
         # lr scheduler
         self.factor = 0.3
         self.patience_lr = 5
-
-
-        # callbacks
-        self.early_stopping_patience = 10
 
 
         # hyperparams
