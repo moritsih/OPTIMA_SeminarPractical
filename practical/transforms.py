@@ -252,6 +252,7 @@ class SVDNA(MapTransform, Randomizable):
                  keys: KeysCollection, 
                  histogram_matching_degree: float = 0.5,
                  allow_missing_keys: bool = False, 
+                 plot_source_target_svdna = False,
                  prob: float = 1.0,
                  source_domains: List = ["Spectralis", "Topcon", "Cirrus"], 
                  data_path: Path = Path(Path.cwd() / 'data/Retouch-Preprocessed/train')) -> None:
@@ -263,13 +264,27 @@ class SVDNA(MapTransform, Randomizable):
         self.target_dataset = self.filter_target_domain(data_path, source_domains)
         self.domains = ['Spectralis', 'Topcon', 'Cirrus']
         self.histogram_matching_degree = histogram_matching_degree
+        self.plot_source_target_svdna = plot_source_target_svdna
 
     def __call__(self, data):
         d = dict(data)
         for ki, key in enumerate(self.keys):
             img = data[key]
-            img = self.perform_SVDNA(img, self.target_dataset, self.source_domains, self.histogram_matching_degree)
+            img, target_img, source_img = self.perform_SVDNA(img, self.target_dataset, self.source_domains, self.histogram_matching_degree)
 
+            if self.plot_source_target_svdna and self.domain_temp not in self.source_domains:
+                fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+
+                axs[0].imshow(source_img, cmap='gray')
+                axs[1].imshow(target_img, cmap='gray')
+                axs[2].imshow(img, cmap='gray')
+
+                axs[0].set_title("Source: Spectralis")
+                axs[1].set_title(f"Target: {self.domain_plot}")
+                axs[2].set_title(f"SVDNA, k={self.k_plot}")
+
+                plt.show()      
+            
             d[key] = img
         return d
 
@@ -284,41 +299,44 @@ class SVDNA(MapTransform, Randomizable):
                     target domain 2: [{img: img1}, {img: img2}, ...]}
         '''
 
-        domains = os.listdir(self.named_domain_folder) # gets only the names of domains
-        # creates dict e.g. {'cirrus':['path1', 'path2', ...], 'topcon':['path1', 'path2', ...]}
-        img_folders_sorted_by_domain = {domain:os.listdir(self.named_domain_folder / domain) for domain in domains}
+        # Create a dictionary mapping each domain to its corresponding image folders
+        domain_to_folders = {domain: os.listdir(self.named_domain_folder / domain) for domain in os.listdir(self.named_domain_folder)}
 
-        # restructure source data into a list of dictionaries, where each dictionary has keys img and label
+        # Get a list of all image folders in the training set
+        all_folders = os.listdir(data_path)
+        if '.DS_Store' in all_folders:
+            all_folders.remove('.DS_Store')
 
-        unsorted_img_folders_training_set = os.listdir(data_path)
+        # Initialize a dictionary to hold the final result
+        result = {}
 
-        domains_dict = {}
+        # Iterate over all domains
+        for domain, folders in domain_to_folders.items():
+            # Initialize a list to hold the images for this domain
+            images = []
 
-        for domain in domains:
-            
-            list_of_dicts_images = []
-            
-            for img_folder in unsorted_img_folders_training_set:
+            # Iterate over the folders that belong to this domain
+            for folder in folders:
+                # If the folder is in the training set and the domain is not a source domain, process it
+                if folder in all_folders and domain not in source_domains:
+                    all_folders.remove(folder)
 
-                if img_folder in img_folders_sorted_by_domain[domain]:
-                    
-                    subfolders = os.listdir(data_path / img_folder)
-                    unsorted_img_folders_training_set.remove(img_folder)
-
+                    # Check if the folder contains both 'image' and 'label_image' subfolders
+                    subfolders = os.listdir(data_path / folder)
                     if 'image' in subfolders and 'label_image' in subfolders:
-                        
-                        if domain in source_domains:
-                            continue
-                        
-                        else:
-                            sliced_images = sorted(os.listdir(data_path / img_folder / 'image'))
+                        # Get the image files
+                        image_files = sorted([x for x in os.listdir(data_path / folder / 'image') if ".png" in x])
 
-                            for i in range(len(sliced_images)):
-                                    list_of_dicts_images.append({'img': str(data_path / img_folder / 'image' / sliced_images[i])})
-                        
-            domains_dict[domain] = list_of_dicts_images
-                                        
-        return domains_dict
+                        # Add each image to the list
+                        for image_file in image_files:
+                            images.append({
+                                'img': str(data_path / folder / 'image' / image_file)
+                            })
+
+            # Add the images for this domain to the result
+            result[domain] = images
+
+        return result
     
 
     def perform_SVDNA(self, source, target_dataset, source_domains, histogram_matching_degree):
@@ -334,28 +352,28 @@ class SVDNA(MapTransform, Randomizable):
         
         domain_idx = self.R.randint(len(self.domains))
         domain = self.domains[domain_idx]
-
+        self.domain_plot = domain
         if domain not in source_domains:
             # randomly sample k and target image to get style from
             k = self.R.randint(20,50)
-            
+
+            self.k_plot = k
             target = target_dataset[domain][self.R.randint(0, len(target_dataset[domain]))]['img']
 
-            source_img_raw, target_img_raw, _, _, img_svdna, source_noise_adapt_no_histogram = self.svdna(k, 
-                                                                                                          target, 
-                                                                                                          source, 
-                                                                                                          histogram_matching_degree)
-            #print("SVDNA performed.")
+            source_img_raw, target_img_raw, _, _, img_svdna, source_noise_adapt_no_histogram = self.svdna(k, target, source, histogram_matching_degree)
+
+            #source_noise_adapt_no_histogram is SVDNA with histogram only
+
+            return img_svdna, target_img_raw, source_img_raw
 
         else:
             img_svdna = cv2.imread(source, 0)
-            #print("Source domain chosen. No SVDNA performed.")
 
-        return img_svdna
+            return img_svdna, None, None
     
 
     def readIm(self, imagepath):
-        image = imagepath#cv2.imread(str(imagepath), 0)
+        image = imagepath
         return image
 
 
@@ -369,16 +387,14 @@ class SVDNA(MapTransform, Randomizable):
         resized_target=np.asarray(Image.fromarray(target_img).resize((h, w), Image.NEAREST))
         resized_src=np.asarray(Image.fromarray(source_img).resize((h, w), Image.NEAREST))
 
-        #print("A")
         u_target, s_target, vh_target = np.linalg.svd(resized_target, full_matrices=False)
-        #print("target done")
         u_source, s_source, vh_source = np.linalg.svd(resized_src, full_matrices=False)
-        #print("source done")
+
         thresholded_singular_target = s_target
-        thresholded_singular_target[0:k] = 0
-        #print("B")
+        thresholded_singular_target[0:k] = 0 # set "important" parts to zero
+
         thresholded_singular_source = s_source
-        thresholded_singular_source[k:] = 0
+        thresholded_singular_source[k:] = 0 # set "noise" to zero
 
         # i thought the k last singular values of target would be transferred to the source. However, here
         # they just take them out, put the matrices back together and only THEN perform the subtraction
@@ -391,15 +407,17 @@ class SVDNA(MapTransform, Randomizable):
         noise_adapted_im = content_src + target_style
 
         noise_adapted_im_clipped = noise_adapted_im.clip(0, 255).astype(np.uint8)
-        #print("C")
+
         transformHist = A.Compose([
         A.HistogramMatching([resized_target], blend_ratio=(histo_matching_degree, histo_matching_degree), read_fn=self.readIm, p=1)
         ])
-        #print("D")
+
         transformed = transformHist(image=noise_adapted_im_clipped)
+
         svdna_im = transformed["image"]
 
         return source_img, target_img, content_src, np.squeeze(target_style), svdna_im, noise_adapted_im_clipped
+        
         
 
 class Debugging(MapTransform):

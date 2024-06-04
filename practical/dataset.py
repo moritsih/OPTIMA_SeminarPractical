@@ -8,7 +8,6 @@ from torch.utils.data import Dataset
 from torch.utils.data.dataset import random_split
 import numpy as np
 import cv2
-from tqdm import tqdm
 
 np.random.seed(99)
 torch.manual_seed(99)
@@ -42,8 +41,6 @@ class OCTDatasetPrep(Dataset):
                  generate_empty_labels=False, 
                  source_domains: List = ['Spectralis', 'Topcon', 'Cirrus'], 
                  named_domain_folder: str = 'data/RETOUCH/TrainingSet-Release',
-                 get_decompositions=False,
-                 delete_decompositions=False
                  ):
 
         self.data_path = Path(data_path)
@@ -56,9 +53,6 @@ class OCTDatasetPrep(Dataset):
 
         if generate_empty_labels:
             self.generate_black_images() 
-
-        self.get_decompositions = get_decompositions
-        self.delete_decompositions = delete_decompositions
 
         try:
             self.source_domain_dict, self.num_domains = self.filter_source_domain(self.data_path, self.source_domains, self.domains, self.named_domain_folder)
@@ -77,62 +71,47 @@ class OCTDatasetPrep(Dataset):
         source_domains: The source domain for the upcoming SVDNA process.
         '''
 
-        # creates dict e.g. {'cirrus':['path1', 'path2', ...], 'topcon':['path1', 'path2', ...]}
-        img_folders_sorted_by_domain = {domain:os.listdir(named_domain_folder / domain) for domain in domains}
+        # Create a dictionary mapping each domain to its corresponding image folders
+        domain_to_folders = {domain: os.listdir(named_domain_folder / domain) for domain in domains}
 
-        # restructure source data into a list of dictionaries, where each dictionary has keys img and label
+        # Get a list of all image folders in the training set
+        all_folders = os.listdir(data_path)
+        if '.DS_Store' in all_folders:
+            all_folders.remove('.DS_Store')
 
-        unsorted_img_folders_training_set = os.listdir(data_path)
+        # Initialize a dictionary to hold the final result
+        result = {}
 
-        domains_dict = {}
+        # Only iterate over the source domains
+        for domain in source_domains:
+            # Initialize a list to hold the images for this domain
+            images = []
 
-        for domain in domains:
-            
-            list_of_dicts_images = []
-            
-            for img_folder in unsorted_img_folders_training_set:
+            # Iterate over the folders that belong to this domain
+            for folder in domain_to_folders[domain]:
+                # If the folder is in the training set, process it
+                if folder in all_folders:
+                    all_folders.remove(folder)
 
-                if img_folder in img_folders_sorted_by_domain[domain]:
-                    
-                    subfolders = os.listdir(data_path / img_folder)
-                    unsorted_img_folders_training_set.remove(img_folder)
-
+                    # Check if the folder contains both 'image' and 'label_image' subfolders
+                    subfolders = os.listdir(data_path / folder)
                     if 'image' in subfolders and 'label_image' in subfolders:
-                        
-                        if domain in source_domains:
+                        # Get the image and label files
+                        image_files = sorted([x for x in os.listdir(data_path / folder / 'image') if ".png" in x])
+                        label_files = sorted([x for x in os.listdir(data_path / folder / 'label_image') if ".png" in x])
 
-                            sliced_images = sorted([x for x in os.listdir(data_path / img_folder / 'image') if ".png" in x])
-                            sliced_labels = sorted([x for x in os.listdir(data_path / img_folder / 'label_image') if ".png" in x])
-                            
-                            for i in range(len(sliced_images)):
-                                if (sliced_images[i] == sliced_labels[i]) or (sliced_images[i][:-4] + '_empty.png' == sliced_labels[i]):
+                        # Only include images that have a corresponding label
+                        for image_file in image_files:
+                            if image_file in label_files:
+                                images.append({
+                                    'img': str(data_path / folder / 'image' / image_file),
+                                    'label': str(data_path / folder / 'label_image' / image_file)
+                                })
 
-                                    list_of_dicts_images.append(
-                                        {'img': str(data_path / img_folder / 'image' / sliced_images[i]), 'label': str(data_path / img_folder / 'label_image' / sliced_labels[i])}
-                                        )
+            # Add the images for this domain to the result
+            result[domain] = images
 
-                                else:
-                                    continue
-                        
-            domains_dict[domain] = list_of_dicts_images
-                                        
-        return domains_dict, len(domains)
-
-    def perform_svd(self):
-        if self.get_decompositions:
-            for data in tqdm(self.source_domain_list, desc="Performing SVD"):
-                img_path = data['img']
-                img = cv2.imread(img_path, 0)  # Read image in grayscale
-                U, S, V = np.linalg.svd(img)
-                svd_file = img_path.replace('.png', '.npz')
-                np.savez(svd_file, U=U, S=S, V=V)
-
-        if self.delete_decompositions:
-            for data in tqdm(self.source_domain_list, desc="Deleting decompositions"):
-                img_path = data['img']
-                svd_file = img_path.replace('.png', '.npz')
-                if os.path.exists(svd_file):
-                    os.remove(svd_file)
+        return result, len(source_domains)
 
 
     def generate_black_images(self, delete_images=False):
@@ -208,12 +187,18 @@ class OCTDatasetPrep(Dataset):
                 sliced_images = sorted(os.listdir(testset_path / img_folder / 'image'))
                 sliced_labels = sorted(os.listdir(testset_path / img_folder / 'label_image'))
                 
-                for i in range(len(sliced_images)):
-                    if (sliced_images[i] == sliced_labels[i]) or (sliced_images[i][:-4] + '_empty.png' == sliced_labels[i]):
+                #for i in range(len(sliced_images)):
+                #    if (sliced_images[i] == sliced_labels[i]) or (sliced_images[i][:-4] + '_empty.png' == sliced_labels[i]):
 
-                        test_data_list.append(
-                            {'img': str(testset_path / img_folder / 'image' / sliced_images[i]), 'label': str(testset_path / img_folder / 'label_image' / sliced_labels[i])}
-                            )
+                #        test_data_list.append(
+                #            {'img': str(testset_path / img_folder / 'image' / sliced_images[i]), 'label': str(testset_path / img_folder / 'label_image' / sliced_labels[i])}
+                #            )
+                        
+                for i in range(len(sliced_images)):
+
+                    test_data_list.append(
+                        {'img': str(testset_path / img_folder / 'image' / sliced_images[i]), 'label': str(testset_path / img_folder / 'label_image' / sliced_images[i])}
+                        )
     
         return test_data_list
 
@@ -255,6 +240,7 @@ class OCTDatasetPrep(Dataset):
         print(f"Validation set: {len(self.validation_set)}")
         print(f"Test set: {len(self.test_set)}")
         return self.training_set, self.validation_set, self.test_set
+
 
 
 class MakeDataset(Dataset):
