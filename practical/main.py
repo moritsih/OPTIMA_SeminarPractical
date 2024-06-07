@@ -110,7 +110,7 @@ if __name__ == "__main__":
     # args with defaults
     parser.add_argument('--batch_size', type=int, default=8, help='Batch size')
     parser.add_argument('--epochs', type=int, default=150, help='Number of epochs')
-    parser.add_argument('--use_official_testset', type=bool, default=True, help='Use official testset')
+    parser.add_argument('--use_official_testset', type=bool, default=False, help='Use official testset')
     parser.add_argument('--loss_smoothing', type=float, default=1e-5, help='Loss smoothing')
     parser.add_argument('--train_split', type=float, default=0.8, help='Train split')
     parser.add_argument('--val_split', type=float, default=0.2, help='Validation split')
