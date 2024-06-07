@@ -207,12 +207,13 @@ class OCTDatasetPrep(Dataset):
 
         if use_official_testset:
             test_set = self.get_test_dataset(self.testset_path)
-            dataset_split = [dataset_split[0], 1-dataset_split[0]]
+            dataset_split = [dataset_split[0], dataset_split[1]]
+            rest = 1 - sum(dataset_split)
 
+            train_len = int(dataset_len * dataset_split[0])
             val_len = int(dataset_len * dataset_split[1])
-            train_len = dataset_len - val_len
 
-            self.training_set, self.validation_set = random_split(self.source_domain_list, [train_len, val_len])
+            self.training_set, self.validation_set = random_split(self.source_domain_list, [train_len, val_len, rest])
             self.test_set = test_set
             print("Total dataset length: ", dataset_len + len(test_set))
             print(f"Training set: {len(self.training_set)}")
