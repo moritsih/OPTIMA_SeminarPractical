@@ -207,7 +207,7 @@ class OCTDatasetPrep(Dataset):
 
         if use_official_testset:
             test_set = self.get_test_dataset(self.testset_path)
-            dataset_split = [dataset_split[0], 1 - dataset_split[1]]
+            dataset_split = [dataset_split[0], 1 - dataset_split[0]]
 
             train_len = int(dataset_len * dataset_split[0])
             val_len = dataset_len - train_len

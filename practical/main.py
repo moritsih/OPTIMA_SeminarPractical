@@ -101,16 +101,16 @@ if __name__ == "__main__":
     # required args
     parser.add_argument('--source_domains', nargs='+', required=True, help='List of source domains')
     parser.add_argument('--experiment_name', required=True, help='Name of the experiment')
-    parser.add_argument('--exp_with_svdna', type=bool, required=True, help='Use SVDNA (True/False)')
+    parser.add_argument('--exp_with_svdna', type=str, required=True, help='Use SVDNA (True/False)')
 
     # args for ablation
-    parser.add_argument('--with_histogram', type=bool, default=True, help='Can turn on/turn off histogram matching (True/False)')
-    parser.add_argument('--histogram_matching_only', type=bool, default=False, help='ONLY perform histogram matching, no noise adaptation. (True/False)')
+    parser.add_argument('--with_histogram', type=str, default="True", help='Can turn on/turn off histogram matching (True/False)')
+    parser.add_argument('--histogram_matching_only', type=str, default="True", help='ONLY perform histogram matching, no noise adaptation. (True/False)')
 
     # args with defaults
     parser.add_argument('--batch_size', type=int, default=8, help='Batch size')
     parser.add_argument('--epochs', type=int, default=150, help='Number of epochs')
-    parser.add_argument('--use_official_testset', type=bool, default=False, help='Use official testset')
+    parser.add_argument('--use_official_testset', type=str, default="True", help='Use official testset')
     parser.add_argument('--loss_smoothing', type=float, default=1e-5, help='Loss smoothing')
     parser.add_argument('--train_split', type=float, default=0.8, help='Train split')
     parser.add_argument('--val_split', type=float, default=0.2, help='Validation split')
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     exp_with_svdna = str2bool(args.exp_with_svdna)
     with_histogram = str2bool(args.with_histogram)
     histogram_matching_only = str2bool(args.histogram_matching_only)
-
+    print(use_official_testset)
     run(args.source_domains, 
         args.experiment_name, 
         args.batch_size, 
