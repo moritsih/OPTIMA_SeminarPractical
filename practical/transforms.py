@@ -269,7 +269,7 @@ class SVDNA(MapTransform, Randomizable):
         self.histogram_matching_degree = histogram_matching_degree
         self.plot_source_target_svdna = plot_source_target_svdna
         self.exp_with_svdna = exp_with_svdna
-        self.without_histogram = with_histogram
+        self.with_histogram = with_histogram
         self.histogram_matching_only = histogram_matching_only
 
     def __call__(self, data):

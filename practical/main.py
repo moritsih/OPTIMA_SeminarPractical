@@ -12,7 +12,7 @@ from config import Config
 from dataset import *
 import wandb
 import argparse
-
+from utils import str2bool
 from monai.transforms import *
 
 from lightning.pytorch.plugins.environments import SLURMEnvironment
@@ -118,14 +118,21 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # for easier handling of bools, convert any of "y, Yes, True, 1" to bool: True and viceversa False
+    use_official_testset = str2bool(args.use_official_testset)
+    exp_with_svdna = str2bool(args.exp_with_svdna)
+    with_histogram = str2bool(args.with_histogram)
+    histogram_matching_only = str2bool(args.histogram_matching_only)
+
     run(args.source_domains, 
         args.experiment_name, 
         args.batch_size, 
         args.epochs, 
-        args.use_official_testset, 
+        use_official_testset, 
         args.loss_smoothing,
         args.train_split,
         args.val_split,
         args.test_split,
-        args.exp_with_svdna,
-        args.with_histogram)
+        exp_with_svdna,
+        with_histogram,
+        histogram_matching_only)
