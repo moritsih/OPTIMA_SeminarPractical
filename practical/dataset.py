@@ -210,7 +210,7 @@ class OCTDatasetPrep(Dataset):
             dataset_split = [dataset_split[0], 1 - dataset_split[1]]
 
             train_len = int(dataset_len * dataset_split[0])
-            val_len = int(dataset_len * dataset_split[1])
+            val_len = dataset_len - train_len
 
             self.training_set, self.validation_set = random_split(self.source_domain_list, [train_len, val_len])
             self.test_set = test_set
