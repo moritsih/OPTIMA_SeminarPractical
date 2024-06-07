@@ -23,7 +23,19 @@ torch.manual_seed(99)
 
 class Config():
 
-    def __init__(self):
+    def __init__(self, 
+                 source_domains: List[str] = ['Spectralis', 'Topcon', 'Cirrus'],
+                 exp_with_svdna: bool = True,
+                 with_histogram: bool = True,
+                 experiment_name: str = "What am I doing wrong",
+                 batch_size: int = 8,
+                 epochs: int = 100,
+                 use_official_testset: bool = True,
+                 loss_smoothing: float = 1e-5,
+                 train_split: float = 0.8,
+                 val_split: float = 0.2,
+                 test_split: float = 0.1,
+                 histogram_matching_only: bool = False):
 
         # directory where img folders are still sorted by domain (but unprocessed OCT images)
         self.name_dir = Path(Path.cwd() / 'data/RETOUCH/TrainingSet-Release/') 
@@ -48,13 +60,26 @@ class Config():
 
 
         # NECESSARY TO SPECIFY since this decides what the "training set" is
-        self.source_domains = ['Spectralis', 'Topcon', 'Cirrus']
+        self.source_domains = source_domains
+        self.use_official_testset = use_official_testset
+        self.train_split = train_split
+        self.val_split = val_split
+        self.test_split = test_split
+        self.exp_with_svdna = exp_with_svdna # if false, no SVDNA is performed
+        self.with_histogram = with_histogram # if false, no histogram matching is performed
+        self.experiment_name = experiment_name
+        self.histogram_matching_only = histogram_matching_only # if true, only_histogram matching is performed.
 
 
         # transforms
         self.train_transforms = Compose([
             #CustomImageLoader(keys=['img', 'label']), # if SVDNA should not be performed, uncomment this and comment the following two lines
-            SVDNA(keys=['img'], histogram_matching_degree=0.5, source_domains=self.source_domains),
+            SVDNA(keys=['img'], 
+                  histogram_matching_degree=0.5, 
+                  source_domains=self.source_domains, 
+                  exp_with_svdna = self.exp_with_svdna, 
+                  with_histogram = self.with_histogram,
+                  histogram_matching_only=self.histogram_matching_only),
             CustomImageLoader(keys=['label']),
             ConvertLabelMaskToChannel(keys=['label'], target_keys=["masks"]),
             ExpandChannelDim(keys=['img', 'label']),
@@ -126,8 +151,6 @@ class Config():
             'decoder_attention_type': 'scse'
         }
 
-        self.experiment_name = ""
-
 
         self.checkpoint_callback = ModelCheckpoint(dirpath=self.model_path / self.experiment_name, 
                                                             monitor='val_loss_total', 
@@ -153,11 +176,15 @@ class Config():
         self.weight_decay = 0.003
 
 
+        # loss
+        self.loss_smoothing = loss_smoothing
+
+
         # lr scheduler
         self.factor = 0.3
         self.patience_lr = 5
 
 
         # hyperparams
-        self.batch_size = 3
-        self.epochs = 1
+        self.batch_size = batch_size
+        self.epochs = epochs

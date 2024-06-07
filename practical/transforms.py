@@ -249,11 +249,14 @@ class TransposeImage(MapTransform):
 class SVDNA(MapTransform, Randomizable):
 
     def __init__(self, 
+                 exp_with_svdna: bool,
                  keys: KeysCollection, 
                  histogram_matching_degree: float = 0.5,
                  allow_missing_keys: bool = False, 
                  plot_source_target_svdna = False,
                  prob: float = 1.0,
+                 with_histogram: bool = True,
+                 histogram_matching_only: bool = False,
                  source_domains: List = ["Spectralis", "Topcon", "Cirrus"], 
                  data_path: Path = Path(Path.cwd() / 'data/Retouch-Preprocessed/train')) -> None:
         super().__init__(keys, allow_missing_keys)
@@ -265,6 +268,9 @@ class SVDNA(MapTransform, Randomizable):
         self.domains = ['Spectralis', 'Topcon', 'Cirrus']
         self.histogram_matching_degree = histogram_matching_degree
         self.plot_source_target_svdna = plot_source_target_svdna
+        self.exp_with_svdna = exp_with_svdna
+        self.without_histogram = with_histogram
+        self.histogram_matching_only = histogram_matching_only
 
     def __call__(self, data):
         d = dict(data)
@@ -353,18 +359,29 @@ class SVDNA(MapTransform, Randomizable):
         domain_idx = self.R.randint(len(self.domains))
         domain = self.domains[domain_idx]
         self.domain_plot = domain
+
+        
         if domain not in source_domains:
-            # randomly sample k and target image to get style from
-            k = self.R.randint(20,50)
 
-            self.k_plot = k
-            target = target_dataset[domain][self.R.randint(0, len(target_dataset[domain]))]['img']
+            if self.exp_with_svdna:
+                # randomly sample k and target image to get style from
+                k = self.R.randint(20,50)
 
-            source_img_raw, target_img_raw, _, _, img_svdna, source_noise_adapt_no_histogram = self.svdna(k, target, source, histogram_matching_degree)
+                self.k_plot = k
+                target = target_dataset[domain][self.R.randint(0, len(target_dataset[domain]))]['img']
 
-            #source_noise_adapt_no_histogram is SVDNA with histogram only
+                source_img_raw, target_img_raw, _, _, img_svdna, source_noise_adapt_no_histogram = self.svdna(k, target, source, histogram_matching_degree)
 
-            return img_svdna, target_img_raw, source_img_raw
+                #source_noise_adapt_no_histogram is SVDNA with histogram only
+                if not self.with_histogram:
+                    return source_noise_adapt_no_histogram, target_img_raw, source_img_raw
+                
+                return img_svdna, target_img_raw, source_img_raw
+
+            else:
+                img_svdna = cv2.imread(source, 0)
+
+                return img_svdna, None, None
 
         else:
             img_svdna = cv2.imread(source, 0)
@@ -412,6 +429,13 @@ class SVDNA(MapTransform, Randomizable):
         A.HistogramMatching([resized_target], blend_ratio=(histo_matching_degree, histo_matching_degree), read_fn=self.readIm, p=1)
         ])
 
+        # noise adaptation is skipped and only histogram matching is performed.
+        if self.histogram_matching_only:
+            transformed = transformHist(image=resized_src)
+            svdna_im = transformed["image"]
+
+            return source_img, target_img, content_src, np.squeeze(target_style), svdna_im, noise_adapted_im_clipped
+        
         transformed = transformHist(image=noise_adapted_im_clipped)
 
         svdna_im = transformed["image"]

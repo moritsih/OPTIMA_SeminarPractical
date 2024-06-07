@@ -4,7 +4,6 @@ import torch.optim as optim
 import torch
 
 import lightning as L
-from lightning.pytorch import seed_everything
 import torchmetrics as tm
 from lightning.pytorch.callbacks import Callback
 
@@ -28,10 +27,11 @@ class LitUNetPlusPlus(L.LightningModule):
         self.model = model
         self.experiment_name = experiment_name
 
-        self.loss_func1 = monai.losses.GeneralizedDiceLoss(include_background=False, sigmoid=True)
+        self.loss_func1 = monai.losses.GeneralizedDiceLoss(include_background=True, 
+                                                           softmax=True, 
+                                                           smooth_nr=cfg.loss_smoothing, 
+                                                           smooth_dr=cfg.loss_smoothing)
         self.loss_func2 = torch.nn.BCEWithLogitsLoss()
-
-        # self.loss_func = monai.losses.GeneralizedDiceFocalLoss(include_background=False, sigmoid=True)
 
         # several metrics
         avg = 'weighted' # weighted: calculates statistics for each label and computes weighted average using their support
@@ -155,8 +155,8 @@ class LitUNetPlusPlus(L.LightningModule):
         return total_loss
 
     def configure_optimizers(self):
-        #optimizer = optim.AdamW(self.model.parameters(), lr=self.cfg.lr, weight_decay=self.cfg.weight_decay)
-        optimizer = optim.Adam(self.model.parameters(), lr=self.cfg.lr, weight_decay=self.cfg.weight_decay)
+        optimizer = optim.AdamW(self.model.parameters(), lr=self.cfg.lr, weight_decay=self.cfg.weight_decay)
+        #optimizer = optim.Adam(self.model.parameters(), lr=self.cfg.lr, weight_decay=self.cfg.weight_decay)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=self.cfg.factor, patience=self.cfg.patience_lr)
         return {"optimizer": optimizer, 
                 "lr_scheduler": {'scheduler': scheduler, 'monitor': 'val_loss_total'}}

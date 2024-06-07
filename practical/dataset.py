@@ -185,15 +185,7 @@ class OCTDatasetPrep(Dataset):
             if 'image' in subfolders and 'label_image' in subfolders:
 
                 sliced_images = sorted(os.listdir(testset_path / img_folder / 'image'))
-                sliced_labels = sorted(os.listdir(testset_path / img_folder / 'label_image'))
-                
-                #for i in range(len(sliced_images)):
-                #    if (sliced_images[i] == sliced_labels[i]) or (sliced_images[i][:-4] + '_empty.png' == sliced_labels[i]):
 
-                #        test_data_list.append(
-                #            {'img': str(testset_path / img_folder / 'image' / sliced_images[i]), 'label': str(testset_path / img_folder / 'label_image' / sliced_labels[i])}
-                #            )
-                        
                 for i in range(len(sliced_images)):
 
                     test_data_list.append(
