@@ -123,7 +123,7 @@ if __name__ == "__main__":
     exp_with_svdna = str2bool(args.exp_with_svdna)
     with_histogram = str2bool(args.with_histogram)
     histogram_matching_only = str2bool(args.histogram_matching_only)
-    print(use_official_testset)
+
     run(args.source_domains, 
         args.experiment_name, 
         args.batch_size, 
