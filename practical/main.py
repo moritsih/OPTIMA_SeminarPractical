@@ -96,7 +96,7 @@ def run(source_domains, experiment_name,
                                     cfg.aggregate_testing_results])
 
 
-    trainer.fit(unetpp, train_dataloaders=train_loader, val_dataloaders=val_loader)
+    #trainer.fit(unetpp, train_dataloaders=train_loader, val_dataloaders=val_loader)
     trainer.test(unetpp, dataloaders=test_loader)
     wandb.finish
 
