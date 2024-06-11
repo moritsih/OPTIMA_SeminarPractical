@@ -14,6 +14,7 @@ import wandb
 import argparse
 from utils import str2bool
 from monai.transforms import *
+import glob
 
 from lightning.pytorch.plugins.environments import SLURMEnvironment
 SLURMEnvironment.detect = lambda: False
@@ -72,8 +73,13 @@ def run(source_domains, experiment_name,
                                name=cfg.experiment_name)
 
 
+    experiment_folder = Path("/home/optima/mhaderer/OPTIMA_Masterarbeit/practical/models/") / cfg.experiment_name
+    checkpoint = list(experiment_folder.glob("*.ckpt"))[0]
+
+    model = LitUNetPlusPlus.load_from_checkpoint(checkpoint_path = checkpoint, experiment_name=cfg.experiment_name)
+    
     # model is the actual model from segmentation_models_pytorch
-    model = smp.UnetPlusPlus(**cfg.model_parameters_unetpp)
+    #model = smp.UnetPlusPlus(**cfg.model_parameters_unetpp)
 
     # LitUnetPlusPlus is the lightning module defined in lightning_module.py
     unetpp = LitUNetPlusPlus(cfg, model, experiment_name=cfg.experiment_name)
@@ -86,11 +92,11 @@ def run(source_domains, experiment_name,
                         callbacks=[cfg.checkpoint_callback, # saves best model based on validation loss, every 5 epochs
                                     cfg.lr_monitor, 
                                     #cfg.save_initial_model,
-                                    cfg.early_stopping, # stops training if validation loss does not improve for 20 epochs
+                                    #cfg.early_stopping, # stops training if validation loss does not improve for 20 epochs
                                     cfg.aggregate_testing_results])
 
 
-    #trainer.fit(unetpp, train_dataloaders=train_loader, val_dataloaders=val_loader)
+    trainer.fit(unetpp, train_dataloaders=train_loader, val_dataloaders=val_loader)
     trainer.test(unetpp, dataloaders=test_loader)
     wandb.finish
 

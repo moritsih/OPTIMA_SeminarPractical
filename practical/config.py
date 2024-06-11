@@ -27,7 +27,7 @@ class Config():
                  source_domains: List[str] = ['Spectralis', 'Topcon', 'Cirrus'],
                  exp_with_svdna: bool = True,
                  with_histogram: bool = True,
-                 experiment_name: str = "What am I doing wrong",
+                 experiment_name: str = " ",
                  batch_size: int = 8,
                  epochs: int = 100,
                  use_official_testset: bool = True,

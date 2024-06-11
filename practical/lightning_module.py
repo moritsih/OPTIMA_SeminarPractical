@@ -189,7 +189,6 @@ class AggregateTestingResultsCallback(Callback):
         # group by condition and calculate mean
         grouped_means = self.results.groupby(["Task"]).agg({
             "Model": "first",
-            "Dice": "mean",
             "Accuracy": "mean",
             "F1": "mean",
             "Precision": "mean",
