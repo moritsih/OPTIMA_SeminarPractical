@@ -73,13 +73,13 @@ def run(source_domains, experiment_name,
                                name=cfg.experiment_name)
 
 
-    experiment_folder = Path("/home/optima/mhaderer/OPTIMA_Masterarbeit/practical/models/") / cfg.experiment_name
-    checkpoint = list(experiment_folder.glob("*.ckpt"))[0]
+    #experiment_folder = Path("/home/optima/mhaderer/OPTIMA_Masterarbeit/practical/models/") / cfg.experiment_name
+    #checkpoint = list(experiment_folder.glob("*.ckpt"))[0]
 
-    model = LitUNetPlusPlus.load_from_checkpoint(checkpoint_path = checkpoint, experiment_name=cfg.experiment_name)
+    #model = LitUNetPlusPlus.load_from_checkpoint(checkpoint_path = checkpoint, experiment_name=cfg.experiment_name)
     
     # model is the actual model from segmentation_models_pytorch
-    #model = smp.UnetPlusPlus(**cfg.model_parameters_unetpp)
+    model = smp.UnetPlusPlus(**cfg.model_parameters_unetpp)
 
     # LitUnetPlusPlus is the lightning module defined in lightning_module.py
     unetpp = LitUNetPlusPlus(cfg, model, experiment_name=cfg.experiment_name)
