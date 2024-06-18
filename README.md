@@ -1,5 +1,4 @@
 # OPTIMA_Masterarbeit
-First draft for my repository holding all files and information I might and will need during my seminar work, my practical work and, finally, the master's thesis.
 
 Seminar papers to read:
 
@@ -16,3 +15,7 @@ Seminar papers to read:
 
 [Self-Supervised Learning of Domain Invariant Features for Depth Estimation](https://openaccess.thecvf.com/content/WACV2022/papers/Akada_Self-Supervised_Learning_of_Domain_Invariant_Features_for_Depth_Estimation_WACV_2022_paper.pdf)
 
+
+## Practical Work
+
+Reimplement "Noise transfer for unsupervised domain adaptation of retinal OCT images". 
