@@ -91,7 +91,7 @@ def run(source_domains, experiment_name,
                         deterministic=True,
                         callbacks=[cfg.checkpoint_callback, # saves best model based on validation loss, every 5 epochs
                                     cfg.lr_monitor, 
-                                    cfg.save_initial_model,
+                                    #cfg.save_initial_model,
                                     #cfg.early_stopping, # stops training if validation loss does not improve for 20 epochs
                                     cfg.aggregate_testing_results])
 
