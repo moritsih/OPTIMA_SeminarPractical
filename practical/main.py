@@ -67,13 +67,13 @@ def run(source_domains, experiment_name,
     
     test_loader = DataLoader(test_dataset, batch_size=cfg.batch_size, shuffle=False, 
                              num_workers=7, persistent_workers=True)
-
+    
 
     wandb_logger = WandbLogger(project="PracticalWorkinAI", 
                                name=cfg.experiment_name)
 
 
-    experiment_folder = Path("/home/optima/mhaderer/OPTIMA_Masterarbeit/practical/models/") / cfg.experiment_name
+    experiment_folder = Path("/home/optima/mhaderer/OPTIMA_Masterarbeit/practical/models/") / cfg.experiment_name[:-4] # validation name
     checkpoint = list(experiment_folder.glob("*.ckpt"))[0]
 
     model = LitUNetPlusPlus.load_from_checkpoint(checkpoint_path = checkpoint, experiment_name=cfg.experiment_name)
