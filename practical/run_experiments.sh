@@ -13,6 +13,8 @@ python main.py --source_domains Spectralis Topcon  --experiment_name Spectralis-
 python main.py --source_domains Spectralis Cirrus --experiment_name Spectralis-Cirrus-noSVDNA-val --exp_with_svdna "False" --with_histogram "True" --batch_size 8 --epochs 130 --use_official_testset "True" --loss_smoothing 1e-5 --train_split 0.8 --val_split 0.2
 python main.py --source_domains Topcon Cirrus --experiment_name Topcon-Cirrus-noSVDNA-val --exp_with_svdna "False" --with_histogram "True" --batch_size 8 --epochs 130 --use_official_testset "True" --loss_smoothing 1e-5 --train_split 0.8 --val_split 0.2
 
+python main.py --source_domains Spectralis --experiment_name Untrained-val --exp_with_svdna "False" --with_histogram "True" --batch_size 8 --epochs 130 --use_official_testset "True" --loss_smoothing 1e-5 --train_split 0.8 --val_split 0.2
+
 # more extreme cases
 #python main.py --source_domains Spectralis --experiment_name Spectralis --exp_with_svdna "True" --with_histogram "True" --batch_size 8 --epochs 130 --use_official_testset "True" --loss_smoothing 1e-5 --train_split 0.8 --val_split 0.2
 #python main.py --source_domains Topcon --experiment_name Topcon --exp_with_svdna "True" --with_histogram "True" --batch_size 8 --epochs 130 --use_official_testset "True" --loss_smoothing 1e-5 --train_split 0.8 --val_split 0.2
