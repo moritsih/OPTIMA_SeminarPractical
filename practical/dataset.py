@@ -253,6 +253,10 @@ class OCTDatasetPrep(Dataset):
         validation_set = [item for sublist in validation_set.values() for item in sublist]
         test_set = [item for sublist in test_set.values() for item in sublist]
 
+        if dataset_split[2] == 0:
+            validation_set += test_set
+            test_set = []
+
         # make training set into list but filter for source domain
         training_set = []
         for domain in self.source_domains:
