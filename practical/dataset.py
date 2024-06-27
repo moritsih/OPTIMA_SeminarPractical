@@ -57,6 +57,7 @@ class OCTDatasetPrep(Dataset):
         self.source_domain_dict = self.filter_source_domain(self.data_path, self.domains, self.named_domain_folder)
         #self.source_domain_list = [folder for domain in self.domains for folder in self.source_domain_dict[domain]]
 
+
     def __len__(self):
         return len(self.source_domain_list)
 
@@ -65,6 +66,10 @@ class OCTDatasetPrep(Dataset):
         '''
         data_path: Path to the training set folder where all images are not sorted by domains.
         source_domains: The source domain for the upcoming SVDNA process.
+
+        The preprocessed dataset comes in a form where the images are not sorted by domains. Since this 
+        is strictly necessary for this method, I have to access the raw OCT data filenames, since they are
+        sorted by domains. This sorting is performed in this method.
         '''
 
         # Create a dictionary mapping each domain to its corresponding image folders
@@ -112,6 +117,10 @@ class OCTDatasetPrep(Dataset):
 
     def generate_black_images(self, delete_images=False):
         """
+        ############################################
+        RETIRED METHOD
+        ############################################
+
         Generate black images for missing files in the label_image folder.
 
         Args:
@@ -166,6 +175,11 @@ class OCTDatasetPrep(Dataset):
                             os.remove(str(file_path))
 
     def delete_generated_labels(self):
+        '''
+        ############################################
+        RETIRED METHOD
+        ############################################
+        '''
         # Delete the generated black images
         self.generate_black_images(delete_images=True)
 
@@ -273,6 +287,11 @@ class OCTDatasetPrep(Dataset):
 
 
 class MakeDataset(Dataset):
+
+    '''
+    Takes dataset in the form of a dictionary with keys "img" and "label" and
+    returns a dataset object.
+    '''
 
     def __init__(self, dataset_untransformed, transform=None):
 

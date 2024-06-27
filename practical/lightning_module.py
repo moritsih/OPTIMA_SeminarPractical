@@ -19,6 +19,11 @@ SLURMEnvironment.detect = lambda: False
 
 
 class LitUNetPlusPlus(L.LightningModule):
+    '''
+    The LightningModule implements training steps, validation steps and test steps. It
+    organizes loss functions, optimizers, LR scheduling and logging. Also, it allows for
+    callbacks to get model checkpoints.
+    '''
     def __init__(self, cfg, model, experiment_name):
         super().__init__()
         self.cfg = cfg
@@ -91,18 +96,6 @@ class LitUNetPlusPlus(L.LightningModule):
 
         outputs_nobg = outputs[:, 1:, :, :]
         masks_nobg = masks[:, 1:, :, :]
-
-        #output_to_save = torch.sigmoid(outputs_nobg[:5])
-
-        # thresholding
-        #output_to_save[output_to_save > 0.5] = 1
-        #output_to_save[output_to_save <= 0.5] = 0
-
-        #for i in range(output_to_save.shape[0]):
-        #    img_path = os.path.join(self.cfg.validation_img_path, f"epoch{self.current_epoch}")
-        #    if not os.path.isdir(img_path): os.mkdir(img_path)
-        #    img = os.path.join(img_path, f"b{batch_idx}img{i+1}.png")
-        #    cv2.imwrite(img, output_to_save[i].permute(1, 2, 0).cpu().numpy() * 255)
 
         self.log('val_loss_total', total_loss)
         self.log('val_loss_dice', dice)
