@@ -54,18 +54,14 @@ class OCTDatasetPrep(Dataset):
         if generate_empty_labels:
             self.generate_black_images() 
 
-        try:
-            self.source_domain_dict, self.num_domains = self.filter_source_domain(self.data_path, self.source_domains, self.domains, self.named_domain_folder)
-        except IndexError:
-            raise Exception("LABEL IMAGES MISSING! Have you tried generating all missing label images?")
-        
-        self.source_domain_list = [folder for domain in self.source_domains for folder in self.source_domain_dict[domain]]
+        self.source_domain_dict = self.filter_source_domain(self.data_path, self.domains, self.named_domain_folder)
+        #self.source_domain_list = [folder for domain in self.domains for folder in self.source_domain_dict[domain]]
 
     def __len__(self):
         return len(self.source_domain_list)
 
 
-    def filter_source_domain(self, data_path, source_domains, domains, named_domain_folder):
+    def filter_source_domain(self, data_path, domains, named_domain_folder):
         '''
         data_path: Path to the training set folder where all images are not sorted by domains.
         source_domains: The source domain for the upcoming SVDNA process.
@@ -82,8 +78,8 @@ class OCTDatasetPrep(Dataset):
         # Initialize a dictionary to hold the final result
         result = {}
 
-        # Only iterate over the source domains
-        for domain in source_domains:
+        # iterate over the domains
+        for domain in ["Spectralis", "Topcon", "Cirrus"]:
             # Initialize a list to hold the images for this domain
             images = []
 
@@ -111,7 +107,7 @@ class OCTDatasetPrep(Dataset):
             # Add the images for this domain to the result
             result[domain] = images
 
-        return result, len(source_domains)
+        return result
 
 
     def generate_black_images(self, delete_images=False):
@@ -173,7 +169,6 @@ class OCTDatasetPrep(Dataset):
         # Delete the generated black images
         self.generate_black_images(delete_images=True)
 
-
     def get_test_dataset(self, testset_path):
 
         test_data_list = []
@@ -195,44 +190,85 @@ class OCTDatasetPrep(Dataset):
         return test_data_list
 
 
-
     def get_datasets(self, dataset_split: Sequence[float] = [0.7, 0.2, 0.1], use_official_testset=False):
         '''
         Returns the datasets in the order:
         training_set, validation_set, test_set
+
+        Splits are carried out in a domain stratified manner.
+        Training set only includes the specified source domain,
+        validation and test sets include all domains.
         '''
 
-        dataset_len = len(self.source_domain_list)
+        len_by_domain = {domain: len(self.source_domain_dict[domain]) for domain in self.source_domain_dict.keys()}
 
         if use_official_testset:
             test_set = self.get_test_dataset(self.testset_path)
             dataset_split = [dataset_split[0], 1 - dataset_split[0]]
 
-            train_len = int(dataset_len * dataset_split[0])
-            val_len = dataset_len - train_len
-   
+            # get stratified split by domain
+            train_len = [int(len_by_domain[domain] * dataset_split[0]) for domain in len_by_domain.keys()]
+            val_len = [len_by_domain[domain] - train_len[i] for i, domain in enumerate(len_by_domain.keys())]
 
-            self.training_set, self.validation_set = random_split(self.source_domain_list, [train_len, val_len])
-            
+            # use pytorch random_split to do stratified splitting by domain for training and validation sets
+            training_set_all_domains = {}
+            validation_set = {}
+
+            for i, domain in enumerate(self.source_domain_dict.keys()):
+                training_set_all_domains[domain], validation_set[domain] = random_split(self.source_domain_dict[domain], [train_len[i], val_len[i]])
+
+            # make validation set dict into list
+            validation_set = [item for sublist in validation_set.values() for item in sublist]
+
+            # make training set into list but filter for source domain
+            training_set = []
+            for domain in self.source_domains:
+                training_set += training_set_all_domains[domain]
+                
+            total_dataset_len = len(training_set) + len(validation_set) + len(test_set)
+
             self.test_set = test_set
-            print("Total dataset length: ", dataset_len + len(test_set))
-            print(f"Training set: {len(self.training_set)}")
-            print(f"Validation set: {len(self.validation_set)}")
-            print(f"Test set: {len(self.test_set)}")
+            print("Total dataset length: ", total_dataset_len)
+            print(f"Training set: {len(training_set)}")
+            print(f"Validation set: {len(validation_set)}")
+            print(f"Test set: {len(test_set)}")
 
-            return self.training_set, self.validation_set, self.test_set
+            return training_set, validation_set, test_set
 
 
-        train_len = int(dataset_len * dataset_split[0])
-        val_len = int(dataset_len * dataset_split[1])
-        test_len = dataset_len - train_len - val_len
+        # get stratified split by domain
+        train_len = [int(len_by_domain[domain] * dataset_split[0]) for domain in len_by_domain.keys()]
+        val_len = [int(len_by_domain[domain] * dataset_split[1]) for domain in len_by_domain.keys()]
+        test_len = [(len_by_domain[domain] - (train_len[i] + val_len[i])) for i, domain in enumerate(len_by_domain.keys())]
 
-        self.training_set, self.validation_set, self.test_set = random_split(self.source_domain_list, [train_len, val_len, test_len])
-        print("Total dataset length: ", dataset_len)
-        print(f"Training set: {len(self.training_set)}")
-        print(f"Validation set: {len(self.validation_set)}")
-        print(f"Test set: {len(self.test_set)}")
-        return self.training_set, self.validation_set, self.test_set
+        # use pytorch random_split to do stratified splitting by domain for training and validation sets
+        training_set_all_domains = {}
+        validation_set = {}
+        test_set = {}
+
+        for i, domain in enumerate(self.source_domain_dict.keys()):
+            training_set_all_domains[domain], validation_set[domain], test_set[domain] = random_split(self.source_domain_dict[domain], [train_len[i], val_len[i], test_len[i]])
+
+        # make validation set dict into list
+        validation_set = [item for sublist in validation_set.values() for item in sublist]
+        test_set = [item for sublist in test_set.values() for item in sublist]
+
+        if dataset_split[2] == 0:
+            validation_set += test_set
+            test_set = []
+
+        # make training set into list but filter for source domain
+        training_set = []
+        for domain in self.source_domains:
+            training_set += training_set_all_domains[domain]
+
+        total_dataset_len = len(training_set) + len(validation_set) + len(test_set)
+
+        print("Total dataset length: ", total_dataset_len)
+        print(f"Training set: {len(training_set)}")
+        print(f"Validation set: {len(validation_set)}")
+        print(f"Test set: {len(test_set)}")
+        return training_set, validation_set, test_set
 
 
 
