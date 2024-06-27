@@ -15,13 +15,17 @@ from lightning_module import AggregateTestingResultsCallback, SaveInitialModelCa
 
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 
-
 # Set random seed
 np.random.seed(99)
 torch.manual_seed(99)
 
 
 class Config():
+
+    '''
+    All the hyperparameters and configurations are set here.
+    This class is used all over the project to have centralized parameters.
+    '''
 
     def __init__(self, 
                  source_domains: List[str] = ['Spectralis', 'Topcon', 'Cirrus'],

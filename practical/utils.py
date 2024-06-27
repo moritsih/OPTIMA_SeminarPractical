@@ -9,7 +9,9 @@ torch.manual_seed(99)
 
 
 def plot_img_label_pred(img, pred, mask):
-    
+    '''
+    Plots image, ground truth and prediction of an image.
+    '''
     fig, ax = plt.subplots(1, 3, figsize=(20, 5))
     
     img = img.squeeze().cpu().detach().numpy()
@@ -26,7 +28,9 @@ def plot_img_label_pred(img, pred, mask):
 
 
 def str2bool(v):
-    # helper function to convert string to boolean for argument parsing
+    '''
+    Helper function used to convert strings to booleans in arg parsing.
+    '''
     if isinstance(v, bool):
         return v
     if v.lower() in ('True', 'yes', 'true', 't', 'y', '1'):
